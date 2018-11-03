@@ -1,6 +1,6 @@
 from trees import *
 from vl_codes import *
-import arithmetic 
+import arithmetic
 from itertools import groupby
 from json import dump
 from sys import argv
@@ -13,7 +13,7 @@ def camzip(method, filename):
 
     frequencies = dict([(key, len(list(group))) for key, group in groupby(sorted(x))])
     n = sum([frequencies[a] for a in frequencies])
-    p = dict([(a,frequencies[a]/n) for a in frequencies])
+    p = dict([(a, frequencies[a]/n) for a in frequencies])
 
     if method == 'huffman' or method == 'shannon_fano':
         if (method == 'huffman'):
@@ -26,14 +26,13 @@ def camzip(method, filename):
         y = vl_encode(x, c)
 
     elif method == 'arithmetic':
-        y = arithmetic.encode(x,p)
+        y = arithmetic.encode(x, p)
 
     else:
         raise NameError('Compression method %s unknown' % method)
-    
-    
+
     y = bytes(bits2bytes(y))
-    
+
     outfile = filename + '.cz' + method[0]
 
     with open(outfile, 'wb') as fout:
@@ -55,4 +54,3 @@ if __name__ == "__main__":
         exit()
 
     camzip(argv[1], argv[2])
-

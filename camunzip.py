@@ -14,7 +14,7 @@ def camunzip(filename):
         method = 'arithmetic'
     else:
         raise NameError('Unknown compression method')
-    
+
     with open(filename, 'rb') as fin:
         y = fin.read()
     y = bytes2bits(y)
@@ -23,7 +23,7 @@ def camunzip(filename):
     with open(pfile, 'r') as fp:
         frequencies = load(fp)
     n = sum([frequencies[a] for a in frequencies])
-    p = dict([(int(a),frequencies[a]/n) for a in frequencies])
+    p = dict([(int(a), frequencies[a]/n) for a in frequencies])
 
     if method == 'huffman' or method == 'shannon_fano':
         if (method == 'huffman'):
@@ -36,17 +36,16 @@ def camunzip(filename):
         x = vl_decode(y, xt)
 
     elif method == 'arithmetic':
-        x = arithmetic.decode(y,p,n)
+        x = arithmetic.decode(y, p, n)
 
     else:
         raise NameError('This will never happen (famous last words)')
-    
+
     # '.cuz' for Cam UnZipped (don't want to overwrite the original file...)
-    outfile = filename[:-4] + '.cuz' 
+    outfile = filename[:-4] + '.cuz'
 
     with open(outfile, 'wb') as fout:
         fout.write(bytes(x))
-
 
 
 if __name__ == "__main__":

@@ -1,14 +1,15 @@
-def tree2newick(t, labels = []):
+def tree2newick(t, labels=[]):
     return(xtree2newick(tree2xtree(t, labels)))
-    
-def xtree2newick(xt, labels = [], n = -1):
+
+
+def xtree2newick(xt, labels=[], n=-1):
     """
-    Converts an extended tree to Newick format. 
-    
+    Converts an extended tree to Newick format.
+
     Parameters:
     -----------
     xt: list of lists
-    Extended tree defined as list of lists where each list contains as its 
+    Extended tree defined as list of lists where each list contains as its
     first element a pointer to its parent and the second element is a list
     containing pointers its children
 
@@ -17,7 +18,7 @@ def xtree2newick(xt, labels = [], n = -1):
 
     Returns:
     --------
-    string 
+    string
     Tree description in Newick format (can be used to view a tree viewing standard
     tools, e.g., phylo.io online phylogenetic tree viewer.)
 
@@ -52,12 +53,12 @@ def xtree2newick(xt, labels = [], n = -1):
                 labels[k] = 'left square bracket'
             elif labels[k] == ']':
                 labels[k] = 'right square bracket'
-            
-    if (n == -1): # find root and set n to index of root
+
+    if (n == -1):  # find root and set n to index of root
         n = [ind for ind in range(len(xt)) if xt[ind][0] == -1]
         if len(n) != 1:
             raise NameError('Tree with no root or several roots')
-        n = n[0] # n is a list with 1 element, retrieve that element
+        n = n[0]  # n is a list with 1 element, retrieve that element
 
     # find the children of the current node
     children = [a for a in xt[n][1] if a != -1]
@@ -65,16 +66,16 @@ def xtree2newick(xt, labels = [], n = -1):
     if len(children) == 0:
         return '%(myname)s' % {'myname': labels[n]}
     # for every child, recurse the function and separate its outcomes by commas
-    outstring = xtree2newick(xt,labels,children[0]) # first child
-    for k in range(1,len(children)): # remaining children
-        outstring = outstring + ',' + xtree2newick(xt,labels,children[k])
+    outstring = xtree2newick(xt, labels, children[0])  # first child
+    for k in range(1, len(children)):  # remaining children
+        outstring = outstring + ',' + xtree2newick(xt, labels, children[k])
 
     # surround the string by parenthesis and append the current node label
     outstring = '(' + outstring + ')%(myname)s' % {'myname': labels[n]}
-    return outstring # return the resulting string
+    return outstring  # return the resulting string
 
 
-def tree2xtree(t, labels = []):
+def tree2xtree(t, labels=[]):
     xt = [[] for node in t]
     for node in range(len(t)):
         children = [ind for ind in range(len(t)) if t[ind] == node]
@@ -89,7 +90,7 @@ def tree2xtree(t, labels = []):
         leavesfirst.extend([k for k in range(len(xt)) if len(xt[k][1]) > 0])
         for k in range(len(labels)):
             xtlabels[leavesfirst[k]] = labels[k]
-        for k in range(len(labels),len(xt)):
+        for k in range(len(labels), len(xt)):
             xtlabels[leavesfirst[k]] = str(k)
         labels = xtlabels
     for node in range(len(xt)):
@@ -97,8 +98,10 @@ def tree2xtree(t, labels = []):
 
     return xt
 
+
 def xtree2tree(xt):
     return [node[0] for node in xt]
+
 
 def xtree2code(xt):
     leaves = [ind for ind in range(len(xt)) if len(xt[ind][1]) == 0]
@@ -106,9 +109,9 @@ def xtree2code(xt):
     for leaf in leaves:
         codeword = []
         node = leaf
-        while xt[node][0] != -1: # while node is not root
-            parent = xt[node][0] # node's parent
-            # which number child am I? 
+        while xt[node][0] != -1:  # while node is not root
+            parent = xt[node][0]  # node's parent
+            # which number child am I?
             nchild = [ind for ind in range(len(xt[parent][1])) if xt[parent][1][ind] == node]
             codeword.insert(0, nchild[0])
             node = parent
@@ -116,14 +119,15 @@ def xtree2code(xt):
 
     return code
 
-    
+
 def tree2code(t, labels=[]):
     return xtree2code(tree2xtree(t, labels))
 
+
 def code2xtree(c):
-    xt = [[-1, []]] # init tree with just a root
+    xt = [[-1, []]]  # init tree with just a root
     for symbol in c:
-        node = 0 # reset to root
+        node = 0  # reset to root
         for digit in c[symbol]:
             while len(xt[node][1]) <= digit:
                 xt[node][1].append(-1)
@@ -141,7 +145,6 @@ def code2xtree(c):
 
     return xt
 
-    
+
 def code2tree(c):
     return xtree2tree(code2xtree(c))
-
