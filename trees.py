@@ -91,7 +91,7 @@ def tree2xtree(t, labels=[]):
         for k in range(len(labels)):
             xtlabels[leavesfirst[k]] = labels[k]
         for k in range(len(labels), len(xt)):
-            xtlabels[leavesfirst[k]] = str(k)
+            xtlabels[leavesfirst[k]] = str(k+1000)
         labels = xtlabels
     for node in range(len(xt)):
         xt[node].append(labels[node])
