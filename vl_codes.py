@@ -1,4 +1,5 @@
 from math import log2, ceil
+import numpy as np
 
 
 def shannon_fano(p):
@@ -6,30 +7,12 @@ def shannon_fano(p):
     # Begin by sorting the probabilities in decreasing order, as required
     # in Shannon's paper.
     p = dict(sorted([(a, p[a]) for a in p if p[a] > 0.0], key=lambda el: el[1], reverse=True))
-
+    print(p)
     # Compute the cumulative probability distribution
-    # this can be done easily with numpy.cumsum but we will do it by hand. Note
-    # that this is not a time-critical operation so efficiency is not an issue.
+    f=[0]
+    for label, probability in p.items():
+        f.append(f[-1]+probability)
 
-    # step 1: initialise f to be a list with one element 0 (this is because Shannon
-    # requires the cumulative probability to be the sum up to AND EXCLUDING the current
-    # symbol, so the first element of f should be zero.
-
-    # ... (whenever you see "..." you are expected to complete a missing command
-
-    # step 2: compute the runninng sum
-    for a in p:  # for every probability in p
-        # you now want to append to f the sum of its last entry (which you can access as [-1])
-        # and the probability p[a] of the current symbol
-
-        # ...
-
-        # the resulting cumulative has one too many element at the end, the sum of all probabilities
-        # that should equal to one. You can use the "pop" command to delete the last element in a list.
-
-        # ...
-
-        # We now convert the list you computed into a dictionary
     f = dict([(a, mf) for a, mf in zip(p, f)])
 
     # assign the codewords
