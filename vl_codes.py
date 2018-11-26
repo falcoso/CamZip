@@ -1,5 +1,8 @@
-from math import log2, ceil
-import numpy as np
+# @Date:   2018-11-25T11:31:47+00:00
+# @Last modified time: 2018-11-26T14:38:45+00:00
+
+
+import math
 
 
 def shannon_fano(p):
@@ -7,41 +10,33 @@ def shannon_fano(p):
     # Begin by sorting the probabilities in decreasing order, as required
     # in Shannon's paper.
     p = dict(sorted([(a, p[a]) for a in p if p[a] > 0.0], key=lambda el: el[1], reverse=True))
-    print(p)
     # Compute the cumulative probability distribution
-    f=[0]
-    for label, probability in p.items():
+    f = [0]
+    for symbol, probability in p.items():
         f.append(f[-1]+probability)
 
     f = dict([(a, mf) for a, mf in zip(p, f)])
 
     # assign the codewords
     code = {}  # initialise as an empty dictionary
-    for a in p:  # for each probability
+    for symbol, probability in p.items():  # for each probability
 
         # Compute the codeword length according to the Shannon-Fano formula
-        # you want to use the functions "ceil()" and "log2()" we imported
-        # from the math library
-        # ...
-        # (assign variable name "length")
+        length = math.ceil(-math.log2(probability))
 
         codeword = []  # initialise current codeword
-        myf = f[a]
-        # for each position in length, we will multiply myf by 2 and take the
-        # integral part as our binary digit
-        for pos in range(length):
-            # multiply myf by 2 (shifting it "left" in binary)
-            # ...
+        myf = f[symbol]
 
-            # if the resulting myf is larger than 1, append a 1 to the codeword,
-            # whereas if it is smaller than 1 you should append a 0
-            # If it is larger than 1, you sould also substratct 1 from myf.
-            # ...
-            # ...
-            # ...
-            # ...
-            # ...
-        code[a] = codeword  # assign the codeword
+        # generate binary codeword for each symbol based on its probability
+        for pos in range(length):
+            myf *= 2
+            if myf > 1:
+                codeword.append(1)
+                myf -= 1
+            else:
+                codeword.append(0)
+
+        code[symbol] = codeword  # assign the codeword
 
     return code  # return the code table
 
