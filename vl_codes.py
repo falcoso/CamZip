@@ -1,14 +1,32 @@
 # @Date:   2018-11-25T11:31:47+00:00
-# @Last modified time: 2018-11-26T14:38:45+00:00
-
+# @Last modified time: 2018-11-26T22:00:25+00:00
 
 import math
 
 
 def shannon_fano(p):
+    """
+    Produces binary codebook for a given alphabet using the Shannon-Fano
+    algorithm.
 
-    # Begin by sorting the probabilities in decreasing order, as required
-    # in Shannon's paper.
+    Parameters:
+    -----------
+    p: dict
+    Alphabet and corresponding probability
+
+    Returns:
+    --------
+    code: dict
+    Alphabet and corresponding binary codeword
+    """
+    # error check p
+    if not all((a >=0 for a in p.values())):
+        raise ValueError("Input distribution has negative probabilities")
+
+    if abs(1 - sum(p.values())) > 1E-5:
+        raise ValueError("Input distribution sums to {} not 1".format(sum(p.values())))
+
+    # order probabilities largest first while filtering 0 probabilities
     p = dict(sorted([(a, p[a]) for a in p if p[a] > 0.0], key=lambda el: el[1], reverse=True))
     # Compute the cumulative probability distribution
     f = [0]
@@ -18,8 +36,8 @@ def shannon_fano(p):
     f = dict([(a, mf) for a, mf in zip(p, f)])
 
     # assign the codewords
-    code = {}  # initialise as an empty dictionary
-    for symbol, probability in p.items():  # for each probability
+    code = {}                              # initialise as an empty dictionary
+    for symbol, probability in p.items():
 
         # Compute the codeword length according to the Shannon-Fano formula
         length = math.ceil(-math.log2(probability))
@@ -42,59 +60,56 @@ def shannon_fano(p):
 
 
 def huffman(p):
+    """
+    Produces binary codebook for a given alphabet using the Huffman algorithm.
+
+    Parameters:
+    -----------
+    p: dict
+    Alphabet and corresponding probability
+
+    Returns:
+    --------
+    code: dict
+    Alphabet and corresponding binary codeword
+    """
+    # error check p
+    if not all((a >=0 for a in p.values())):
+        raise ValueError("Input distribution has negative probabilities")
+
+    if abs(1 - sum(p.values())) > 1E-5:
+        raise ValueError("Input distribution sums to {} not 1".format(sum(p.values())))
+
+    # remove any 0 probability symbols
+    p = dict(filter(lambda item: item[1] > 0, p.items()))
+
     # create an xtree with all the source symbols (to be the leaves) initially orphaned
     xt = [[-1, [], a] for a in p]
-    # label the probabilities with a "pointer" to their corresponding nodes in the tree
-    # in the process, we convert the probability vector from a Python dictionary to a
-    # list of tuples (so we can modify it)
+
+    # convert p to list of tuples with pointer to tree and their probability
     p = [(k, p[a]) for k, a in zip(range(len(p)), p)]
 
-    # the leaves are labeled according to the symbols in the probability vector. We will
-    # label the remaining tree nodes (mainly for visualisation purposes) with numbers
-    # starting at len(p)
     nodelabel = len(p)
 
-    # this loop will gradually increase the tree and reduce the probability list.
-    # It will run until there is only one probability left in the list (which probability
-    # will by then be 1.0)
     while len(p) > 1:
-        # sort probabilities in ascending order (so [0] and [1] are smallest)
-        # using the command "sorted" and, as its second element, the expression
-        #  "key = lambda el:el[1]" (which is an inline function to retrieve the
-        # second entry from a tuple.) Note that the natural order of "sorted" is
-        # increasing, which is as you want it in this case.
-        # The output of sorted() can be written back to p (i.e. p = sorted(p, ....))
-        # ...
+        # sort probabilities in ascending order
+        p = sorted(p, key=lambda el: el[1])
 
-        # Now append a new node to the tree xt with no parent (parent = -1),
-        # no children (children = []) and label str(nodelabel)
-        # ...
-
-        # we incrase the variable nodelabel by 1 for its next use
+        # Now append a new node to the tree xt with no parent or children
+        xt.append([-1, [], nodelabel])
         nodelabel += 1
 
         # assign parent of the nodes pointed to by the smallest probabilities
-        # Note that the smallest probabilities are now p[0] and p[1], so their
-        # pointers to nodes in xt are p[0][0] and p[1][0]. The corresponding
-        # xt nodes should be assigned the new node you created as a parent,
-        # whose index is len(xt)-1 since it has been appended at the end of xt
-        # ...
-        # ...
+        xt[p[0][0]][0] = len(xt)-1
+        xt[p[1][0]][0] = len(xt)-1
 
-        # assign the children of new node to be the nodes pointed to by
-        # p[0] and p[1]. Note that the new node can be addressed as xt[-1]
-        # ...
+        # assign children to appended node
+        xt[-1][1] = [p[0][0], p[1][0]]
 
-        # create a new entry pointing to the new node in the list of probabilities
-        # This new entry should be a tuple with len(xt)-1 as its first element,
-        # and the sum of the probabilities in p[0] and p[1] as its second element
-        # ...
-
-        # remove the two nodes with the smallest probability
+        # replace nodes, with combined nodes
+        p.append((len(xt)-1, p[0][1]+p[1][1]))
         p.pop(0)
         p.pop(0)
-        # (using pop(0) twice removes the first element of the list twice
-        # and hence removes the first 2 elements.)
 
     return(xt)
 
