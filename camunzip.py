@@ -1,8 +1,3 @@
-# @Date:   2018-11-25T11:31:47+00:00
-# @Last modified time: 2018-11-27T19:38:11+00:00
-
-
-
 import trees
 import vl_codes
 import arithmetic
@@ -43,7 +38,8 @@ def camunzip(filename):
     elif method == 'arithmetic':
         x = arithmetic.decode(y, p, n)
 
-    elif method == 'arithmetic_ftr'
+    elif method == 'arithmetic_ftr':
+        x = arithmetic_ftr.decode(y, p, n)
 
     else:
         raise NameError('This will never happen (famous last words)')

@@ -1,9 +1,10 @@
 from math import floor, ceil
 from sys import stdout as so
 from bisect import bisect
+import vl_codes
 
 
-def encode(x, p):
+def encode(x):
     """
     Encodes data using the Arithmetic coding algorithm
 
@@ -11,20 +12,18 @@ def encode(x, p):
     -----------
     x: str
     Data string to be compressed
-    p: dict
-    Alphabet and corresponding probability
 
     Returns:
     --------
     y: binary list
     x data encoded with the p probability
     """
-    # error check p
-    if not all((a >= 0 for a in p.values())):
-        raise ValueError("Input distribution has negative probabilities")
+    # add EOF symbol chosen to be ASCII 176
 
-    if abs(1 - sum(p.values())) > 1E-5:
-        raise ValueError("Input distribution sums to {} not 1".format(sum(p.values())))
+
+
+    # generate probability dictionary
+    p = vl_codes.probability_dict(x)
 
     # define '1' for interval based on precision available
     precision = 32

@@ -12,7 +12,7 @@ def camzip(method, filename):
     with open(filename, 'rb') as fin:
         x = fin.read()
 
-    p = vl_codes.probability_dict(x)
+    p, frequencies = vl_codes.probability_dict(x)
 
     if method == 'huffman' or method == 'shannon_fano':
         if (method == 'huffman'):

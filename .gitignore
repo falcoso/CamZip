@@ -3,3 +3,5 @@ __pycache__
 *.cz*
 *.cu*
 Report/*
+practice.py
+.pytest_cache

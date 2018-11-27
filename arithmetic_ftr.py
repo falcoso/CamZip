@@ -1,10 +1,30 @@
-# @Date:   2018-11-25T11:31:47+00:00
-# @Last modified time: 2018-11-26T22:03:24+00:00
-
-
-from math import floor, ceil
+import math
 from sys import stdout as so
 from bisect import bisect
+
+
+def elias_gamma_encode(x):
+    """
+    Generates an Elias gamma encoding of x
+
+    Parameters:
+    -----------
+    x: int
+    Number to be encoded
+
+    Returns:
+    --------
+    c: binary list
+    Encoded binary number
+    """
+    # find largest power of 2 that is less than x
+    N = math.floor(math.log2(x))
+    c = [0]*N
+
+    # convert x to standard binary form
+    y = [int(a) for a in bin(x)[2:]]
+    c += y
+    return c
 
 
 def encode(x, p):
@@ -33,7 +53,7 @@ def encode(x, p):
     # define '1' for interval based on precision available
     precision = 32
     one = int(2**precision - 1)
-    quarter = int(ceil(one/4))
+    quarter = int(math.ceil(one/4))
     half = 2*quarter
     threequarters = 3*quarter
 
@@ -54,13 +74,13 @@ def encode(x, p):
 
         # display progress bar
         if k % 100 == 0:
-            so.write('Arithmetic encoded %d%%    \r' % int(floor(k/len(x)*100)))
+            so.write('Arithmetic encoded %d%%    \r' % int(math.floor(k/len(x)*100)))
             so.flush()
 
         lohi_range = hi - lo + 1
         # narrow the interval end-points [lo,hi) to the new range [f,f+p]
-        lo = lo + int(ceil(f[x[k]]*lohi_range))
-        hi = lo + int(floor(p[x[k]]*lohi_range))
+        lo = lo + int(math.ceil(f[x[k]]*lohi_range))
+        hi = lo + int(math.floor(p[x[k]]*lohi_range))
         if (lo == hi):
             raise NameError('Zero interval!')
 
@@ -103,6 +123,9 @@ def encode(x, p):
     else:
         y.append(1)
         y += [0]*straddle
+
+    #encode prefix free length of string
+    y += elias_gamma_encode(len(x))
     return(y)
 
 
@@ -133,7 +156,7 @@ def decode(y, p, n):
 
     precision = 32
     one = int(2**precision - 1)
-    quarter = int(ceil(one/4))
+    quarter = int(math.ceil(one/4))
     half = 2*quarter
     threequarters = 3*quarter
 
@@ -158,15 +181,15 @@ def decode(y, p, n):
     x_position = 0
     while 1:
         if x_position % 100 == 0:
-            so.write('Arithmetic decoded %d%%    \r' % int(floor(x_position/n*100)))
+            so.write('Arithmetic decoded %d%%    \r' % int(math.floor(x_position/n*100)))
             so.flush()
 
         lohi_range = hi - lo + 1
         a = bisect(f, (value-lo)/lohi_range) - 1
         x[x_position] = alphabet[a]
 
-        lo = lo + int(ceil(f[a]*lohi_range))
-        hi = lo + int(floor(p[a]*lohi_range))
+        lo = lo + int(math.ceil(f[a]*lohi_range))
+        hi = lo + int(math.floor(p[a]*lohi_range))
         if (lo == hi):
             raise NameError('Zero interval!')
 
