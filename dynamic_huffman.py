@@ -1,84 +1,69 @@
-import math
-import itertools
+import trees
 
 
-def probability_dict(x):
-    """
-    Produces probability dictionary for to compress file with based on the
-    normalised frequencies of each symbol.
+def encode(x, N=10, alpha=0.5):
+    # intialise empty probability of uniform data
+    freq = dict([(chr(a), 1) for a in range(128)])
 
-    Parameters:
-    -----------
-    x: dict
-    file data
+    # create empty list to add data to
+    y = []
 
-    Returns:
-    --------
-    p: dict
-    Alphabet and corresponding probability
-    frequencies: dict
-    Alphabet and corresponding frequencies in file data
-    """
+    for i in range(len(x)):
+        # normalise freq to make it a probability distribution
+        tot = sum(freq.values())
+        p = dict([(key, size/tot) for key, size in freq.items()])
 
-    frequencies = dict([(key, len(list(group))) for key, group in itertools.groupby(sorted(x))])
-    n = sum([frequencies[a] for a in frequencies])
-    p = dict([(a, frequencies[a]/n) for a in frequencies])
-    return(p, frequencies)
+        # create new codebook
+        xt = huffman(p)
+        codebook = trees.xtree2code(xt)
+        y.extend(codebook[x[i]])
+        freq[x[i]] += 1
 
+        # update tree ever N iterations
+        if i % N == 0 and i != 0:
+            freq = dict([(key, size*alpha) for key, size in freq.items()])
 
-def shannon_fano(p):
-    """
-    Produces binary codebook for a given alphabet using the Shannon-Fano
-    algorithm.
+    return y
 
-    Parameters:
-    -----------
-    p: dict
-    Alphabet and corresponding probability
+def decode(y, N=10, alpha=0.5):
+    # intialise empty probability of uniform data
+    freq = dict([(chr(a), 1) for a in range(128)])
 
-    Returns:
-    --------
-    code: dict
-    Alphabet and corresponding binary codeword
-    """
-    # error check p
-    if not all((a >= 0 for a in p.values())):
-        raise ValueError("Input distribution has negative probabilities")
+    # create empty list to add data to
+    x = []
+    tot = sum(freq.values())
+    p = dict([(key, size/tot) for key, size in freq.items()])
+    xt = huffman(p)
+    # print(trees.xtree2newick(xt))
 
-    if abs(1 - sum(p.values())) > 1E-5:
-        raise ValueError("Input distribution sums to {} not 1".format(sum(p.values())))
+    root = [k for k in range(len(xt)) if xt[k][0] == -1]
+    root = root[0]
 
-    # order probabilities largest first while filtering 0 probabilities
-    p = dict(sorted([(a, p[a]) for a in p if p[a] > 0.0], key=lambda el: el[1], reverse=True))
-    # Compute the cumulative probability distribution
-    f = [0]
-    for symbol, probability in p.items():
-        f.append(f[-1]+probability)
+    n = root
 
-    f = dict([(a, mf) for a, mf in zip(p, f)])
+    for k in y:
+        if len(xt[n][1]) < k:
+            raise NameError('Symbol exceeds alphabet size in tree node')
+        if xt[n][1][k] == -1:
+            raise NameError('Symbol not assigned in tree node')
+        n = xt[n][1][k]
+        if len(xt[n][1]) == 0:  # it's a leaf!
+            x.append(xt[n][2])
+            n = root
+            freq[x[-1]] += 1
 
-    # assign the codewords
-    code = {}                              # initialise as an empty dictionary
-    for symbol, probability in p.items():
+            # create new tree
+            tot = sum(freq.values())
+            p = dict([(key, size/tot) for key, size in freq.items()])
+            xt = huffman(p)
 
-        # Compute the codeword length according to the Shannon-Fano formula
-        length = math.ceil(-math.log2(probability))
+            root = [k for k in range(len(xt)) if xt[k][0] == -1]
+            root = root[0]
 
-        codeword = []  # initialise current codeword
-        myf = f[symbol]
+            if len(x) % N == 1 and len(x) != 1:
+                freq = dict([(key, size*alpha) for key, size in freq.items()])
+    return x
 
-        # generate binary codeword for each symbol based on its probability
-        for pos in range(length):
-            myf *= 2
-            if myf > 1:
-                codeword.append(1)
-                myf -= 1
-            else:
-                codeword.append(0)
-
-        code[symbol] = codeword  # assign the codeword
-
-    return code  # return the code table
 
 
 def huffman(p):
@@ -134,58 +119,3 @@ def huffman(p):
         p.pop(0)
 
     return(xt)
-
-
-def bits2bytes(x):
-    n = len(x)+3
-    r = (8 - n % 8) % 8
-    prefix = format(r, '03b')
-    x = ''.join(str(a) for a in x)
-    suffix = '0'*r
-    x = prefix + x + suffix
-    x = [x[k:k+8] for k in range(0, len(x), 8)]
-    y = []
-    for a in x:
-        y.append(int(a, 2))
-
-    return y
-
-
-def bytes2bits(y):
-    x = [format(a, '08b') for a in y]
-    r = int(x[0][0:3], 2)
-    x = ''.join(x)
-    x = [int(a) for a in x]
-    for k in range(3):
-        x.pop(0)
-    for k in range(r):
-        x.pop()
-    return x
-
-
-def vl_encode(x, c):
-    y = []
-    for a in x:
-        y.extend(c[a])
-    return y
-
-
-def vl_decode(y, xt):
-    x = []
-    root = [k for k in range(len(xt)) if xt[k][0] == -1]
-    if len(root) != 1:
-        raise NameError('Tree with no or multiple roots!')
-    root = root[0]
-    leaves = [k for k in range(len(xt)) if len(xt[k][1]) == 0]
-
-    n = root
-    for k in y:
-        if len(xt[n][1]) < k:
-            raise NameError('Symbol exceeds alphabet size in tree node')
-        if xt[n][1][k] == -1:
-            raise NameError('Symbol not assigned in tree node')
-        n = xt[n][1][k]
-        if len(xt[n][1]) == 0:  # it's a leaf!
-            x.append(xt[n][2])
-            n = root
-    return x

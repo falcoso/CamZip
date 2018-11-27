@@ -164,6 +164,21 @@ def bytes2bits(y):
 
 
 def vl_encode(x, c):
+    """
+    Encodes data based on provided codebook
+
+    Parameters:
+    -----------
+    x: str
+    Data to be encoded
+    c: dict
+    Codebook of source symbols and corresponding binary code
+
+    Returns:
+    --------
+    y: list
+    Binary list of encoded data
+    """
     y = []
     for a in x:
         y.extend(c[a])
@@ -171,12 +186,26 @@ def vl_encode(x, c):
 
 
 def vl_decode(y, xt):
+    """
+    Decodes data based on extended tree codebook
+
+    Parameters:
+    -----------
+    y: list
+    Binary list of encoded data
+    xt: tree
+    Extended tree of coding data
+
+    Returns:
+    --------
+    x: list
+    Character list decoded from y based on xt
+    """
     x = []
     root = [k for k in range(len(xt)) if xt[k][0] == -1]
     if len(root) != 1:
         raise NameError('Tree with no or multiple roots!')
     root = root[0]
-    leaves = [k for k in range(len(xt)) if len(xt[k][1]) == 0]
 
     n = root
     for k in y:

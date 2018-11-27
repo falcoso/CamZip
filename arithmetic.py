@@ -1,7 +1,3 @@
-# @Date:   2018-11-25T11:31:47+00:00
-# @Last modified time: 2018-11-26T22:03:24+00:00
-
-
 from math import floor, ceil
 from sys import stdout as so
 from bisect import bisect
@@ -108,7 +104,7 @@ def encode(x, p):
 
 def decode(y, p, n):
     """
-    Encodes data using the Arithmetic coding algorithm
+    Decodes data using the Arithmetic coding algorithm
 
     Parameters:
     -----------
