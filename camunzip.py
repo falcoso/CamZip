@@ -1,5 +1,10 @@
-from trees import *
-from vl_codes import *
+# @Date:   2018-11-25T11:31:47+00:00
+# @Last modified time: 2018-11-27T19:38:11+00:00
+
+
+
+import trees
+import vl_codes
 import arithmetic
 from json import load
 from sys import argv, exit
@@ -17,7 +22,7 @@ def camunzip(filename):
 
     with open(filename, 'rb') as fin:
         y = fin.read()
-    y = bytes2bits(y)
+    y = vl_codes.bytes2bits(y)
 
     pfile = filename[:-1] + 'p'
     with open(pfile, 'r') as fp:
@@ -27,16 +32,18 @@ def camunzip(filename):
 
     if method == 'huffman' or method == 'shannon_fano':
         if (method == 'huffman'):
-            xt = huffman(p)
-            c = xtree2code(xt)
+            xt = vl_codes.huffman(p)
+            c = trees.xtree2code(xt)
         else:
-            c = shannon_fano(p)
-            xt = code2xtree(c)
+            c = vl_codes.shannon_fano(p)
+            xt = trees.code2xtree(c)
 
-        x = vl_decode(y, xt)
+        x = vl_codes.vl_decode(y, xt)
 
     elif method == 'arithmetic':
         x = arithmetic.decode(y, p, n)
+
+    elif method == 'arithmetic_ftr'
 
     else:
         raise NameError('This will never happen (famous last words)')

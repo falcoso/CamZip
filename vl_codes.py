@@ -3,6 +3,21 @@
 
 import math
 
+def probability_dict(x):
+    """
+    Produces probability dictionary for to compress file with based on the 
+    normalised frequencies of each symbol.
+
+    Parameters:
+    -----------
+    x: dict
+    file data
+
+    Returns:
+    --------
+    p: dict
+    Alphabet and corresponding probability
+    """
 
 def shannon_fano(p):
     """
