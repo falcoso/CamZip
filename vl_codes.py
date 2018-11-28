@@ -23,7 +23,7 @@ def probability_dict(x):
     frequencies = dict([(key, len(list(group))) for key, group in itertools.groupby(sorted(x))])
     n = sum([frequencies[a] for a in frequencies])
     p = dict([(a, frequencies[a]/n) for a in frequencies])
-    return(p, frequencies)
+    return(p)
 
 
 def shannon_fano(p):
@@ -92,15 +92,12 @@ def huffman(p):
 
     Returns:
     --------
-    code: dict
-    Alphabet and corresponding binary codeword
+    xt: extended tree
+    Tree mapping the alphabet to a given codeword
     """
     # error check p
     if not all((a >= 0 for a in p.values())):
         raise ValueError("Input distribution has negative probabilities")
-
-    if abs(1 - sum(p.values())) > 1E-5:
-        raise ValueError("Input distribution sums to {} not 1".format(sum(p.values())))
 
     # remove any 0 probability symbols
     p = dict(filter(lambda item: item[1] > 0, p.items()))
