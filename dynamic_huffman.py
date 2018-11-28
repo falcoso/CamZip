@@ -7,14 +7,10 @@ def encode(x, N=10, alpha=0.5):
 
     # create empty list to add data to
     y = []
-
+    codebook = {}
     for i in range(len(x)):
-        # normalise freq to make it a probability distribution
-        tot = sum(freq.values())
-        p = dict([(key, size/tot) for key, size in freq.items()])
-
         # create new codebook
-        xt = huffman(p)
+        xt = huffman(freq)
         codebook = trees.xtree2code(xt)
         y.extend(codebook[x[i]])
         freq[x[i]] += 1
@@ -25,15 +21,14 @@ def encode(x, N=10, alpha=0.5):
 
     return y
 
+
 def decode(y, N=10, alpha=0.5):
     # intialise empty probability of uniform data
     freq = dict([(chr(a), 1) for a in range(128)])
 
     # create empty list to add data to
     x = []
-    tot = sum(freq.values())
-    p = dict([(key, size/tot) for key, size in freq.items()])
-    xt = huffman(p)
+    xt = huffman(freq)
     # print(trees.xtree2newick(xt))
 
     root = [k for k in range(len(xt)) if xt[k][0] == -1]
@@ -53,17 +48,13 @@ def decode(y, N=10, alpha=0.5):
             freq[x[-1]] += 1
 
             # create new tree
-            tot = sum(freq.values())
-            p = dict([(key, size/tot) for key, size in freq.items()])
-            xt = huffman(p)
-
+            xt = huffman(freq)
             root = [k for k in range(len(xt)) if xt[k][0] == -1]
             root = root[0]
 
             if len(x) % N == 1 and len(x) != 1:
                 freq = dict([(key, size*alpha) for key, size in freq.items()])
     return x
-
 
 
 def huffman(p):
@@ -80,13 +71,6 @@ def huffman(p):
     code: dict
     Alphabet and corresponding binary codeword
     """
-    # error check p
-    if not all((a >= 0 for a in p.values())):
-        raise ValueError("Input distribution has negative probabilities")
-
-    if abs(1 - sum(p.values())) > 1E-5:
-        raise ValueError("Input distribution sums to {} not 1".format(sum(p.values())))
-
     # remove any 0 probability symbols
     p = dict(filter(lambda item: item[1] > 0, p.items()))
 
