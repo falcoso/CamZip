@@ -5,3 +5,4 @@ __pycache__
 Report/*
 practice.py
 .pytest_cache
+.cache/*

@@ -13,6 +13,66 @@ class SiblingPair:
     def __repr__(self):
         return str(tuple([self.fp[0], [self.bp[0], self.bp[1]], self.count[0], self.count[1]]))
 
+def vitter_encode(x):
+    """
+    Encodes using the vitter algorithm
+    """
+    # initialise alphabet pointers with null
+    alphabet_pointers = dict([(chr(a), (-1,-1)) for a in range(128)])
+    alphabet_pointers["NULL"] = (0,0)
+
+    # keep null pointer on all zeros
+    init_pair = SiblingPair()
+    init_pair.fp = (-1,-1)
+    init_pair.bp = [("NULL", True), (x[0], True)]
+    init_pair.count = np.array([1.0, 1.0])
+    alphabet_pointers[x[0]] = (0 ,0) #may be a 1 bit so check decoding
+    sib_list = [init_pair]
+
+    # Now we have generated the starting tree we can begin to order the list
+    y = [int(a) for a in bin(ord(x[0]))[2:]]
+    for i in range(1,len(x)):
+        if i % 100 == 0:
+            so.write('Adaptive Huffman encoded %d%%    \r' % int(floor(i/len(x)*100)))
+            so.flush()
+
+        code = []
+        pnt_list = []
+        if alphabet_pointers[x[i]][0] == -1: # not yet in tree
+            # create a new pair
+            new_pair = SiblingPair()
+            new_pair.count = np.array([1.0, 1.0])
+            new_pair.fp = (alphabet_pointers["NULL"][0], 0)
+            new_pair.bp = [("NULL", True), (x[i], True)]
+            sib_list.append(new_pair)
+            sib_list[alphabet_pointers["NULL"][0]].bp[0] = (len(sib_list)-1, False)
+            pnt_list.append(alphabet_pointers["NULL"])
+            alphabet_pointers["NULL"] = (len(sib_list)-1, 0)
+            alphabet_pointers[x[i]] = (len(sib_list)-1, 1)
+
+            # generate the codeword
+            while pnt_list[-1][0] != -1:  # note root node will not be added
+                code.append(pnt_list[-1][1])
+                pair = sib_list[pnt_list[-1][0]]
+                pnt_list.append(pair.fp)
+            code = code[::-1]  # as we are traversing leaves to root so codeword is reversed
+            code = code + [int(a) for a in bin(ord(x[i]))[2:]]
+
+        else:
+            # generate the codeword
+            pnt_list.append(alphabet_pointers[x[i]])
+            while pnt_list[-1][0] != -1:  # note root node will not be added
+                code.append(pnt_list[-1][1])
+                pair = sib_list[pnt_list[-1][0]]
+                pnt_list.append(pair.fp)
+            code = code[::-1]  # as we are traversing leaves to root so codeword is reversed
+        y += code
+
+        sib_list, alphabet_pointers = modify_tree(sib_list, alphabet_pointers, pnt_list, above=True)
+
+    return y
+
+
 
 def init_tree():
     """
@@ -75,7 +135,7 @@ def init_tree():
     return sib_list, alphabet_pointers
 
 
-def modify_tree(sib_list, alphabet_pointers, pnt_list):
+def modify_tree(sib_list, alphabet_pointers, pnt_list, above=False):
     """
     Modifies and exitsting sibling list for Adaptive Huffman algorithms based
     on a traversal list from an encoding or decoding process
@@ -99,6 +159,12 @@ def modify_tree(sib_list, alphabet_pointers, pnt_list):
     alphabet_pointers: dict
     Modified alphabet_pointers to take into account the observed data
     """
+    if above:
+        inc = -1
+    else:
+        inc = 1
+
+
     for pnt, bit in pnt_list:
         sib_list[pnt].count[bit] += 1
         if sib_list[pnt].fp[0] == -1:
@@ -109,16 +175,16 @@ def modify_tree(sib_list, alphabet_pointers, pnt_list):
         while True:
             change = False
             for check in range(2):  # checks both back pointer counts
-                if sib_list[pnt].count[bit] > sib_list[pnt+1].count[check]:
+                if sib_list[pnt].count[bit] > sib_list[pnt+inc].count[check]:
                     change = True
                     # swap the fps of the bp pairs
                     bckpnt1 = sib_list[pnt].bp[bit]
                     if bckpnt1[1]:
-                        alphabet_pointers[bckpnt1[0]] = (pnt+1, check)
+                        alphabet_pointers[bckpnt1[0]] = (pnt+inc, check)
                     else:
-                        sib_list[bckpnt1[0]].fp = (pnt+1, check)
+                        sib_list[bckpnt1[0]].fp = (pnt+inc, check)
 
-                    bckpnt2 = sib_list[pnt+1].bp[check]
+                    bckpnt2 = sib_list[pnt+inc].bp[check]
                     if bckpnt2[1]:
                         alphabet_pointers[bckpnt2[0]] = (pnt, bit)
                     else:
@@ -126,16 +192,32 @@ def modify_tree(sib_list, alphabet_pointers, pnt_list):
 
                     # swap bps
                     sib_list[pnt].bp[bit] = bckpnt2
-                    sib_list[pnt+1].bp[check] = bckpnt1
+                    sib_list[pnt+inc].bp[check] = bckpnt1
+
+                    # swap counts
+                    if above:
+                        count1 = sib_list[pnt].count[bit]
+                        count2 = sib_list[pnt+inc].count[check]
+                        sib_list[pnt].count[bit] = count2
+                        sib_list[pnt+inc].count[check] = count1
+
                     new_bit = check
 
             if not change:  # if no change was made, ordering complete
                 break
 
+
             pnt += 1
             bit = new_bit  # in case node has switched sides in the tree
             if pnt >= len(sib_list)-1:
                 break
+
+        # check for any elements that reference themselves
+        if sib_list[pnt-1].fp[0] == sib_list[pnt-1].bp[0][0] or sib_list[pnt-1].fp[0] == sib_list[pnt-1].bp[1][0]:
+            for i,j in enumerate(sib_list):
+                print("Entry {}: {}".format(i,j))
+            raise RuntimeError("Self referencing pair {}".format(sib_list[pnt-1]))
+
     return sib_list, alphabet_pointers
 
 
@@ -205,9 +287,9 @@ def decode(y, N=10, alpha=0.5):
 
     return x
 
-
-# data = "Letsnotputanyspaces try a slightly different string to see what happens with this encoding malarky"
-# y = encode(data, alpha=1)
-# x = decode(y, alpha=1)
-# print(''.join(x))
-# print()
+if __name__ == "__main__":
+    data = "Lets try something a bit more complicated"
+    y = vitter_encode(data)
+    # x = decode(y, alpha=1)
+    # print(''.join(x))
+    # print()
