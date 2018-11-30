@@ -5,7 +5,7 @@ from math import floor
 
 class SiblingPair:
     def __init__(self):
-        self.count = np.array([0, 0])
+        self.count = np.array([0.0, 0.0])
         self.fp = (-1, -1)  # second part indicates whether 0 or 1 traversal
         self.bp = [(-1, False), (-1, False)]
         return
@@ -45,7 +45,7 @@ def init_tree():
 
         sib_list[-1].bp[0] = (alphabet[2*i+1], True)
         alphabet_pointers[alphabet[2*i+1]] = (i, 0)
-        sib_list[-1].count = np.array([1, 1])
+        sib_list[-1].count = np.array([1.0, 1.0])
 
     # creat list of pointers so that encoding knows where to start
     # iterate through to connect the trees together
@@ -75,6 +75,70 @@ def init_tree():
     return sib_list, alphabet_pointers
 
 
+def modify_tree(sib_list, alphabet_pointers, pnt_list):
+    """
+    Modifies and exitsting sibling list for Adaptive Huffman algorithms based
+    on a traversal list from an encoding or decoding process
+
+    Parameters:
+    -----------
+    sib_list: list of SiblingPair()
+    List of sibling pair trees based on the ASCII character set
+
+    alphabet_pointers: dict
+    Dictionary of pointers to leaves of sib_list labelled with ascii characters
+
+    pnt_list: list (pnt, bit)
+    list of pointers and their corrseponding bits for the tree traversal
+
+    Returns:
+    --------
+    sib_list: list of SiblingPair()
+    Modified sib_list to take into account the observed data
+
+    alphabet_pointers: dict
+    Modified alphabet_pointers to take into account the observed data
+    """
+    for pnt, bit in pnt_list:
+        sib_list[pnt].count[bit] += 1
+        if sib_list[pnt].fp[0] == -1:
+            break
+
+        # NOTE: Tree should be maintained such that all bp < fp and all
+        # counts higher up the list <= than those below it
+        while True:
+            change = False
+            for check in range(2):  # checks both back pointer counts
+                if sib_list[pnt].count[bit] > sib_list[pnt+1].count[check]:
+                    change = True
+                    # swap the fps of the bp pairs
+                    bckpnt1 = sib_list[pnt].bp[bit]
+                    if bckpnt1[1]:
+                        alphabet_pointers[bckpnt1[0]] = (pnt+1, check)
+                    else:
+                        sib_list[bckpnt1[0]].fp = (pnt+1, check)
+
+                    bckpnt2 = sib_list[pnt+1].bp[check]
+                    if bckpnt2[1]:
+                        alphabet_pointers[bckpnt2[0]] = (pnt, bit)
+                    else:
+                        sib_list[bckpnt2[0]].fp = (pnt, bit)
+
+                    # swap bps
+                    sib_list[pnt].bp[bit] = bckpnt2
+                    sib_list[pnt+1].bp[check] = bckpnt1
+                    new_bit = check
+
+            if not change:  # if no change was made, ordering complete
+                break
+
+            pnt += 1
+            bit = new_bit  # in case node has switched sides in the tree
+            if pnt >= len(sib_list)-1:
+                break
+    return sib_list, alphabet_pointers
+
+
 def encode(x, N=10, alpha=0.5):
     sib_list, alphabet_pointers = init_tree()
 
@@ -98,43 +162,7 @@ def encode(x, N=10, alpha=0.5):
         code = code[::-1]  # as we are traversing leaves to root so codeword is reversed
         y += code
 
-        for pnt, bit in pnt_list:
-            sib_list[pnt].count[bit] += 1
-            if sib_list[pnt].fp[0] == -1:
-                break
-
-            # NOTE: Tree should be maintained such that all bp < fp and all
-            # counts higher up the list <= than those below it
-            while True:
-                change = False
-                for check in range(2):
-                    if sib_list[pnt].count[bit] > sib_list[pnt+1].count[check]:
-                        change = True
-                        # swap the fps of the bp pairs
-                        bckpnt1 = sib_list[pnt].bp[bit]
-                        if bckpnt1[1]:
-                            alphabet_pointers[bckpnt1[0]] = (pnt+1, check)
-                        else:
-                            sib_list[bckpnt1[0]].fp = (pnt+1, check)
-
-                        bckpnt2 = sib_list[pnt+1].bp[check]
-                        if bckpnt2[1]:
-                            alphabet_pointers[bckpnt2[0]] = (pnt, bit)
-                        else:
-                            sib_list[bckpnt2[0]].fp = (pnt, bit)
-
-                        # swap bps
-                        sib_list[pnt].bp[bit] = bckpnt2
-                        sib_list[pnt+1].bp[check] = bckpnt1
-                        new_bit = check
-
-                if not change:
-                    break
-
-                pnt += 1
-                bit = new_bit
-                if pnt >= len(sib_list)-1:
-                    break
+        sib_list, alphabet_pointers = modify_tree(sib_list, alphabet_pointers, pnt_list)
 
         multiply_counter %= N
         if multiply_counter == 0:
@@ -148,52 +176,38 @@ def decode(y, N=10, alpha=0.5):
     sib_list, alphabet_pointers = init_tree()
 
     # begin decoding
-    multiply_counter = 0
     x = []
     pnt_list = []
     pair = sib_list[-1]  # initialise root which is at the end of the sib_list
-    print(pair)
-    for bit in y:
-        print("not leaf")
-        pnt_list.append(pair.bp[bit])
+    current_pnt = -1
+    for i in range(len(y)):
+        if i % 100 == 0:
+            so.write('Adaptive Huffman decoded %d%%    \r' % int(floor(i/len(y)*100)))
+            so.flush()
+        bit = y[i]
+        pnt_list.append((current_pnt, bit))
         if pair.bp[bit][1]:  # reached leaf
             x.append(pair.bp[bit][0])
 
-            for pnt, bit in pnt_list[::-1]:
-                print(pnt)
-                print(bit)
-                sib_list[pnt].count[bit] += 1
-                if sib_list[pnt].fp[0] == -1:
-                    break
-                for check in range(2):
-
-                    if sib_list[pnt].count[bit] > sib_list[pnt+1].count[check]:
-                        # swap the fps of the bp pairs
-                        bckpnt1 = sib_list[pnt].bp[bit]
-                        if bckpnt1[1]:
-                            alphabet_pointers[bckpnt1[0]] = (pnt+1, check)
-                        else:
-                            sib_list[bckpnt1[0]].fp = (pnt+1, check)
-
-                        bckpnt2 = sib_list[pnt+1].bp[check]
-                        if bckpnt2[1]:
-                            alphabet_pointers[bckpnt2[0]] = (pnt, bit)
-                        else:
-                            sib_list[bckpnt2[0]].fp = (pnt, bit)
-
-                        # swap bps
-                        sib_list[pnt].bp[bit] = bckpnt2
-                        sib_list[pnt+1].bp[check] = bckpnt1
+            pnt_list = pnt_list[::-1]
+            sib_list, alphabet_pointers = modify_tree(sib_list, alphabet_pointers, pnt_list)
             pnt_list = []
             pair = sib_list[-1]
-
+            current_pnt = -1
+            if len(x)%N == 0:
+                for pair in sib_list:
+                    pair.count *= alpha
         else:
-            pair = sib_list[pair.bp[bit][0]]
+            current_pnt = pair.bp[bit][0]
+            pair = sib_list[current_pnt]
+
+
 
     return x
 
 
-# data = "WWWWWWWW"
-# print(len(data))
+# data = "Letsnotputanyspaces try a slightly different string to see what happens with this encoding malarky"
 # y = encode(data, alpha=1)
+# x = decode(y, alpha=1)
+# print(''.join(x))
 # print()
