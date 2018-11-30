@@ -23,7 +23,7 @@ def probability_dict(x):
     frequencies = dict([(key, len(list(group))) for key, group in itertools.groupby(sorted(x))])
     n = sum([frequencies[a] for a in frequencies])
     p = dict([(a, frequencies[a]/n) for a in frequencies])
-    return(p)
+    return(p, frequencies)
 
 
 def shannon_fano(p):
@@ -100,7 +100,7 @@ def huffman(p):
         raise ValueError("Input distribution has negative probabilities")
 
     # remove any 0 probability symbols
-    p = dict(filter(lambda item: item[1] > 0, p.items()))
+    # p = dict(filter(lambda item: item[1] > 0, p.items()))
 
     # create an xtree with all the source symbols (to be the leaves) initially orphaned
     xt = [[-1, [], a] for a in p]

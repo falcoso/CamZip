@@ -1,5 +1,7 @@
 import trees
 import vl_codes
+from sys import stdout as so
+from math import floor
 
 
 def return_extended(xt):
@@ -27,6 +29,9 @@ def encode(x, N=10, alpha=0.5):
     y = []
     codebook = {}
     for i in range(len(x)):
+        if i % 100 == 0:
+            so.write('Dynamic Huffman encoded %d%%    \r' % int(floor(i/len(x)*100)))
+            so.flush()
         # create new codebook
         xt = vl_codes.huffman(freq)
         codebook = trees.xtree2code(xt)
