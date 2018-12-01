@@ -12,7 +12,7 @@ class SiblingPair:
         return
 
     def __repr__(self):
-        return str(tuple([self.fp[0], [self.bp[0], self.bp[1]], self.count[0], self.count[1]]))
+        return str(tuple([self.fp, [self.bp[0], self.bp[1]], self.count[0], self.count[1]]))
 
 def print_tree(tree):
     for i,j in enumerate(tree):
@@ -39,9 +39,11 @@ def vitter_encode(x):
     init_code = [0]*(7-len(init_code)) + init_code #extend to make full 7 bits
     y = [int(a) for a in bin(ord(x[0]))[2:]]  # add first symbol as binary
     for i in range(1, len(x)):
-        if i % 100 == 0:
-            so.write('Adaptive Huffman encoded %d%%    \r' % int(floor(i/len(x)*100)))
-            so.flush()
+        # if i % 100 == 0:
+        #     so.write('Adaptive Huffman encoded %d%%    \r' % int(floor(i/len(x)*100)))
+        #     so.flush()
+
+        print("******Encoding {}".format(x[i]))
 
         code = []
         if alphabet_pointers[x[i]][0] == -1:  # not yet in tree
@@ -75,7 +77,13 @@ def vitter_encode(x):
 
             code = code[::-1]  # as we are traversing leaves to root so codeword is reversed
         y += code
+        print("Current Tree")
+        print_tree(sib_list)
         sib_list, alphabet_pointers = modify_tree_vitter(sib_list, alphabet_pointers, char=x[i])
+        print("Updated Tree")
+        print_tree(sib_list)
+
+    print_tree(sib_list)
     return y
 
 
@@ -226,7 +234,7 @@ def init_tree():
     return sib_list, alphabet_pointers
 
 
-def modify_tree_vitter(sib_list, alphabet_pointers, char=None):
+def modify_tree_vitter(sib_list, alphabet_pointers, char):
     """
     Modifies and exitsting sibling list for Adaptive Huffman algorithms based
     on a traversal list from an encoding or decoding process
@@ -258,47 +266,48 @@ def modify_tree_vitter(sib_list, alphabet_pointers, char=None):
     not_changed = False
     # check alphabet_pointers
     pnt, bit = alphabet_pointers[char]
-
-    for index, item in enumerate(sib_list):
-        for i in range(2):
-            if item.count[1-i] == sib_list[pnt].count[bit]: #1-i to make sure it is left as possible
-
-                if (index == pnt and 1-i ==bit) or index == sib_list[pnt].fp[0]: #already at highest order
-                    not_changed = True #don't swap with parent node
-                else:
-                    #swap fps and bps
-                    bckpnt1 = sib_list[pnt].bp[bit]
-                    if bckpnt1[1]:
-                        alphabet_pointers[bckpnt1[0]] = (index, 1-i)
+    while pnt != -1: #could skip first iteration if new char as will be in max place?
+        for index, item in enumerate(sib_list):
+            for i in range(2):
+                if item.count[1-i] == sib_list[pnt].count[bit]: #1-i to make sure it is left as possible
+                    if (index, 1-i) == (pnt, bit) or (index, 1-i) == sib_list[pnt].fp: #already at highest order
+                        not_changed = True #don't swap with parent node
+                        # error going in here!!! when 'r' is decoded
                     else:
-                        sib_list[bckpnt1[0]].fp = (index, 1-i)
+                        #swap fps and bps
+                        bckpnt1 = sib_list[pnt].bp[bit]
+                        if bckpnt1[1]:
+                            alphabet_pointers[bckpnt1[0]] = (index, 1-i)
+                        else:
+                            sib_list[bckpnt1[0]].fp = (index, 1-i)
 
-                    bckpnt2 = sib_list[index].bp[1-i]
-                    if bckpnt2[1]:
-                        alphabet_pointers[bckpnt2[0]] = (pnt, bit)
-                    else:
-                        sib_list[bckpnt2[0]].fp = (pnt, bit)
+                        bckpnt2 = sib_list[index].bp[1-i]
+                        if bckpnt2[1]:
+                            alphabet_pointers[bckpnt2[0]] = (pnt, bit)
+                        else:
+                            sib_list[bckpnt2[0]].fp = (pnt, bit)
 
-                    # swap bps
-                    sib_list[pnt].bp[bit] = bckpnt2
-                    sib_list[index].bp[1-i] = bckpnt1
-                    pnt, bit = index, i-1
+                        # swap bps
+                        sib_list[pnt].bp[bit] = bckpnt2
+                        sib_list[index].bp[1-i] = bckpnt1
+                        pnt, bit = index, 1-i #was changed from i-1 and does change performance??
 
-                get_out = True
+                    get_out = True
+                    break
+
+            if get_out:
+                get_out = False
                 break
 
-        if get_out:
-            get_out = False
-            break
-
-    sib_list[pnt].count[bit] += 1
-    if not_changed:
-        pnt, bit = sib_list[pnt].fp
-
-    while pnt != -1:
         sib_list[pnt].count[bit] += 1
-        pnt, bit = sib_list[pnt].fp
+        if not_changed:
+            pnt, bit = sib_list[pnt].fp
 
+    # while pnt != -1:
+    #     sib_list[pnt].count[bit] += 1
+    #     pnt, bit = sib_list[pnt].fp
+
+    # ERROR checks on the lists
     #no pair should reference behind itself:
     for i in range(len(sib_list)):
         if sib_list[i].fp[0] > i and sib_list[i].fp[0] != -1: #inc will effectively flip the sign
@@ -435,6 +444,7 @@ def decode(y, N=10, alpha=0.5):
                 for pair in sib_list:
                     pair.count *= alpha
         else:
+
             current_pnt = pair.bp[bit][0]
             pair = sib_list[current_pnt]
 
