@@ -1,6 +1,7 @@
 import numpy as np
 from sys import stdout as so
 from math import floor
+from bitstring import BitArray
 
 
 class SiblingPair:
@@ -13,65 +14,155 @@ class SiblingPair:
     def __repr__(self):
         return str(tuple([self.fp[0], [self.bp[0], self.bp[1]], self.count[0], self.count[1]]))
 
+def print_tree(tree):
+    for i,j in enumerate(tree):
+        print("Entry {}: {}".format(i,j))
+
 def vitter_encode(x):
     """
     Encodes using the vitter algorithm
     """
     # initialise alphabet pointers with null
-    alphabet_pointers = dict([(chr(a), (-1,-1)) for a in range(128)])
-    alphabet_pointers["NULL"] = (0,0)
+    alphabet_pointers = dict([(chr(a), (-1, -1)) for a in range(128)])
+    alphabet_pointers["NULL"] = (0, 0)
 
     # keep null pointer on all zeros
     init_pair = SiblingPair()
-    init_pair.fp = (-1,-1)
+    init_pair.fp = (-1, -1)
     init_pair.bp = [("NULL", True), (x[0], True)]
-    init_pair.count = np.array([1.0, 1.0])
-    alphabet_pointers[x[0]] = (0 ,0) #may be a 1 bit so check decoding
+    init_pair.count = np.array([0.0, 1.0])
+    alphabet_pointers[x[0]] = (0, 1)  # may be a 1 bit so check decoding
     sib_list = [init_pair]
 
     # Now we have generated the starting tree we can begin to order the list
-    y = [int(a) for a in bin(ord(x[0]))[2:]]
-    for i in range(1,len(x)):
+    init_code = [int(a) for a in bin(ord(x[0]))[2:]]
+    init_code = [0]*(7-len(init_code)) + init_code #extend to make full 7 bits
+    y = [int(a) for a in bin(ord(x[0]))[2:]]  # add first symbol as binary
+    for i in range(1, len(x)):
         if i % 100 == 0:
             so.write('Adaptive Huffman encoded %d%%    \r' % int(floor(i/len(x)*100)))
             so.flush()
 
         code = []
-        pnt_list = []
-        if alphabet_pointers[x[i]][0] == -1: # not yet in tree
+        if alphabet_pointers[x[i]][0] == -1:  # not yet in tree
             # create a new pair
             new_pair = SiblingPair()
-            new_pair.count = np.array([1.0, 1.0])
+            new_pair.count = np.array([0.0, 0.0]) #CHANGE THIS TO A 0????
             new_pair.fp = (alphabet_pointers["NULL"][0], 0)
             new_pair.bp = [("NULL", True), (x[i], True)]
             sib_list.append(new_pair)
             sib_list[alphabet_pointers["NULL"][0]].bp[0] = (len(sib_list)-1, False)
-            pnt_list.append(alphabet_pointers["NULL"])
+            sib_list[alphabet_pointers["NULL"][0]].count[0] = 0.0
+
+            pnt, bit = alphabet_pointers["NULL"]
             alphabet_pointers["NULL"] = (len(sib_list)-1, 0)
             alphabet_pointers[x[i]] = (len(sib_list)-1, 1)
 
             # generate the codeword
-            while pnt_list[-1][0] != -1:  # note root node will not be added
-                code.append(pnt_list[-1][1])
-                pair = sib_list[pnt_list[-1][0]]
-                pnt_list.append(pair.fp)
+            while pnt != -1:  # note root node will not be added
+                code.append(bit)
+                pnt, bit = sib_list[pnt].fp
             code = code[::-1]  # as we are traversing leaves to root so codeword is reversed
-            code = code + [int(a) for a in bin(ord(x[i]))[2:]]
+            sym_code = [int(a) for a in bin(ord(x[i]))[2:]]
+            code = code + [0]*(7-len(sym_code)) + sym_code
 
         else:
             # generate the codeword
-            pnt_list.append(alphabet_pointers[x[i]])
-            while pnt_list[-1][0] != -1:  # note root node will not be added
-                code.append(pnt_list[-1][1])
-                pair = sib_list[pnt_list[-1][0]]
-                pnt_list.append(pair.fp)
+            pnt, bit = alphabet_pointers[x[i]]
+            while pnt != -1:  # note root node will not be added
+                code.append(bit)
+                pnt, bit = sib_list[pnt].fp
+
             code = code[::-1]  # as we are traversing leaves to root so codeword is reversed
         y += code
-
-        sib_list, alphabet_pointers = modify_tree(sib_list, alphabet_pointers, pnt_list, above=True)
-
+        sib_list, alphabet_pointers = modify_tree_vitter(sib_list, alphabet_pointers, char=x[i])
     return y
 
+
+def vitter_decode(y):
+    # first symbol will be uncompressed and 7 bits ascii
+    x = []
+    init_sym = y[:7]
+    init_sym = chr(BitArray(init_sym).uint)
+
+    x.append(init_sym)
+    # initialise alphabet pointers with null
+    alphabet_pointers = dict([(chr(a), (-1, -1)) for a in range(128)])
+    alphabet_pointers["NULL"] = (0, 0)
+
+    # keep null pointer on all zeros
+    init_pair = SiblingPair()
+    init_pair.fp = (-1, -1)
+    init_pair.bp = [("NULL", True), (x[0], True)]
+    init_pair.count = np.array([1.0, 1.0])
+    alphabet_pointers[x[0]] = (0, 0)  # may be a 1 bit so check decoding
+    sib_list = [init_pair]
+
+    pnt_list = []
+    pair = sib_list[-1]  # initialise root which is at the end of the sib_list
+    current_pnt = -1
+    gather = False
+    passby = False
+    code = []
+    for i in range(len(y)):
+        if i % 100 == 0:
+            so.write('Adaptive Huffman decoded %d%%    \r' % int(floor(i/len(y)*100)))
+            so.flush()
+
+        # when null leaf is found (see below) gather the next 7 bits to decide
+        # the new symbol
+        bit = y[i]
+        if gather:
+            # note pair will remain same throughout this iteration so will still
+            # break into the statement below
+            code.append(bit)
+            if len(code) == 7:
+                gather = False
+                passby = True
+            else:
+                continue
+        else:
+            pnt_list.append((current_pnt, bit))
+
+        if pair.bp[bit][1]:  # reached leaf
+            if pair.bp[bit][0] == "NULL": #if new symbol
+                gather = True
+                if not passby:
+                    code = []
+                    continue
+                else: #should only reach here after gather completed
+                    passby = False
+                    symb = chr(BitArray(code).uint)
+                    if alphabet_pointers[symb][0] != -1:
+                        raise RuntimeError("Null root for existing items: {}".format(symb))
+                    x.append(symb)
+
+                    # create a new pair
+                    new_pair = SiblingPair()
+                    new_pair.count = np.array([1.0, 1.0])
+                    new_pair.fp = (alphabet_pointers["NULL"][0], 0)
+                    new_pair.bp = [("NULL", True), (x[-1], True)]
+                    sib_list.append(new_pair)
+                    sib_list[alphabet_pointers["NULL"][0]].bp[0] = (len(sib_list)-1, False)
+                    pnt_list.append(alphabet_pointers["NULL"])
+                    alphabet_pointers["NULL"] = (len(sib_list)-1, 0)
+                    alphabet_pointers[x[-1]] = (len(sib_list)-1, 1)
+
+
+
+            else:
+                x.append(pair.bp[bit][0])
+
+            pnt_list = pnt_list[::-1]
+            sib_list, alphabet_pointers = modify_tree(sib_list, alphabet_pointers, pnt_list, above=True)
+            pnt_list = []
+            pair = sib_list[-1]
+            current_pnt = -1
+        else:
+            current_pnt = pair.bp[bit][0]
+            pair = sib_list[current_pnt]
+
+    return x
 
 
 def init_tree():
@@ -135,7 +226,7 @@ def init_tree():
     return sib_list, alphabet_pointers
 
 
-def modify_tree(sib_list, alphabet_pointers, pnt_list, above=False):
+def modify_tree_vitter(sib_list, alphabet_pointers, char=None):
     """
     Modifies and exitsting sibling list for Adaptive Huffman algorithms based
     on a traversal list from an encoding or decoding process
@@ -159,12 +250,92 @@ def modify_tree(sib_list, alphabet_pointers, pnt_list, above=False):
     alphabet_pointers: dict
     Modified alphabet_pointers to take into account the observed data
     """
-    if above:
-        inc = -1
-    else:
-        inc = 1
+
+    # NOTE: Tree should be maintained such that all bp < fp and all
+    # counts higher up the list <= than those below it
+
+    get_out = False
+    not_changed = False
+    # check alphabet_pointers
+    pnt, bit = alphabet_pointers[char]
+
+    for index, item in enumerate(sib_list):
+        for i in range(2):
+            if item.count[1-i] == sib_list[pnt].count[bit]: #1-i to make sure it is left as possible
+
+                if (index == pnt and 1-i ==bit) or index == sib_list[pnt].fp[0]: #already at highest order
+                    not_changed = True #don't swap with parent node
+                else:
+                    #swap fps and bps
+                    bckpnt1 = sib_list[pnt].bp[bit]
+                    if bckpnt1[1]:
+                        alphabet_pointers[bckpnt1[0]] = (index, 1-i)
+                    else:
+                        sib_list[bckpnt1[0]].fp = (index, 1-i)
+
+                    bckpnt2 = sib_list[index].bp[1-i]
+                    if bckpnt2[1]:
+                        alphabet_pointers[bckpnt2[0]] = (pnt, bit)
+                    else:
+                        sib_list[bckpnt2[0]].fp = (pnt, bit)
+
+                    # swap bps
+                    sib_list[pnt].bp[bit] = bckpnt2
+                    sib_list[index].bp[1-i] = bckpnt1
+                    pnt, bit = index, i-1
+
+                get_out = True
+                break
+
+        if get_out:
+            get_out = False
+            break
+
+    sib_list[pnt].count[bit] += 1
+    if not_changed:
+        pnt, bit = sib_list[pnt].fp
+
+    while pnt != -1:
+        sib_list[pnt].count[bit] += 1
+        pnt, bit = sib_list[pnt].fp
+
+    #no pair should reference behind itself:
+    for i in range(len(sib_list)):
+        if sib_list[i].fp[0] > i and sib_list[i].fp[0] != -1: #inc will effectively flip the sign
+            print_tree(sib_list)
+            raise RuntimeError("Back referencing pair {}".format(sib_list[i]))
+
+    #the counts of every pair should be the sum of its previous
+    for i in range(len(sib_list)):
+        for bit in range(2):
+            if not sib_list[i].bp[bit][1]:
+                if sib_list[i].count[bit] != sum(sib_list[sib_list[i].bp[bit][0]].count):
+                    print("LIST ON ERROR")
+                    print_tree(sib_list)
+                    raise RuntimeError("Incorrect sum on pair {}".format(sib_list[i]))
+
+    return sib_list, alphabet_pointers
 
 
+def modify_tree(sib_list, alphabet_pointers, pnt_list):
+    """
+    Modifies and exitsting sibling list for Adaptive Huffman algorithms based
+    on a traversal list from an encoding or decoding process
+    Parameters:
+    -----------
+    sib_list: list of SiblingPair()
+    List of sibling pair trees based on the ASCII character set
+    alphabet_pointers: dict
+    Dictionary of pointers to leaves of sib_list labelled with ascii characters
+    pnt_list: list (pnt, bit)
+    list of pointers and their corrseponding bits for the tree traversal
+    Returns:
+    --------
+    sib_list: list of SiblingPair()
+    Modified sib_list to take into account the observed data
+    alphabet_pointers: dict
+    Modified alphabet_pointers to take into account the observed data
+    """
     for pnt, bit in pnt_list:
         sib_list[pnt].count[bit] += 1
         if sib_list[pnt].fp[0] == -1:
@@ -175,16 +346,16 @@ def modify_tree(sib_list, alphabet_pointers, pnt_list, above=False):
         while True:
             change = False
             for check in range(2):  # checks both back pointer counts
-                if sib_list[pnt].count[bit] > sib_list[pnt+inc].count[check]:
+                if sib_list[pnt].count[bit] > sib_list[pnt+1].count[check]:
                     change = True
                     # swap the fps of the bp pairs
                     bckpnt1 = sib_list[pnt].bp[bit]
                     if bckpnt1[1]:
-                        alphabet_pointers[bckpnt1[0]] = (pnt+inc, check)
+                        alphabet_pointers[bckpnt1[0]] = (pnt+1, check)
                     else:
-                        sib_list[bckpnt1[0]].fp = (pnt+inc, check)
+                        sib_list[bckpnt1[0]].fp = (pnt+1, check)
 
-                    bckpnt2 = sib_list[pnt+inc].bp[check]
+                    bckpnt2 = sib_list[pnt+1].bp[check]
                     if bckpnt2[1]:
                         alphabet_pointers[bckpnt2[0]] = (pnt, bit)
                     else:
@@ -192,32 +363,16 @@ def modify_tree(sib_list, alphabet_pointers, pnt_list, above=False):
 
                     # swap bps
                     sib_list[pnt].bp[bit] = bckpnt2
-                    sib_list[pnt+inc].bp[check] = bckpnt1
-
-                    # swap counts
-                    if above:
-                        count1 = sib_list[pnt].count[bit]
-                        count2 = sib_list[pnt+inc].count[check]
-                        sib_list[pnt].count[bit] = count2
-                        sib_list[pnt+inc].count[check] = count1
-
+                    sib_list[pnt+1].bp[check] = bckpnt1
                     new_bit = check
 
             if not change:  # if no change was made, ordering complete
                 break
 
-
             pnt += 1
             bit = new_bit  # in case node has switched sides in the tree
             if pnt >= len(sib_list)-1:
                 break
-
-        # check for any elements that reference themselves
-        if sib_list[pnt-1].fp[0] == sib_list[pnt-1].bp[0][0] or sib_list[pnt-1].fp[0] == sib_list[pnt-1].bp[1][0]:
-            for i,j in enumerate(sib_list):
-                print("Entry {}: {}".format(i,j))
-            raise RuntimeError("Self referencing pair {}".format(sib_list[pnt-1]))
-
     return sib_list, alphabet_pointers
 
 
@@ -276,20 +431,20 @@ def decode(y, N=10, alpha=0.5):
             pnt_list = []
             pair = sib_list[-1]
             current_pnt = -1
-            if len(x)%N == 0:
+            if len(x) % N == 0:
                 for pair in sib_list:
                     pair.count *= alpha
         else:
             current_pnt = pair.bp[bit][0]
             pair = sib_list[current_pnt]
 
-
-
     return x
 
+
 if __name__ == "__main__":
-    data = "Lets try something a bit more complicated"
+    data = "eets try something a bit more complicated"
     y = vitter_encode(data)
-    # x = decode(y, alpha=1)
+    print("Data encoded")
+    # x = vitter_decode(y)
+    # print("Data decoded")
     # print(''.join(x))
-    # print()
