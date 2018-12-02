@@ -39,12 +39,9 @@ def vitter_encode(x):
     init_code = [0]*(7-len(init_code)) + init_code #extend to make full 7 bits
     y = [int(a) for a in bin(ord(x[0]))[2:]]  # add first symbol as binary
     for i in range(1, len(x)):
-        # if i % 100 == 0:
-        #     so.write('Adaptive Huffman encoded %d%%    \r' % int(floor(i/len(x)*100)))
-        #     so.flush()
-
-        print("******Encoding {}".format(x[i]))
-
+        if i % 100 == 0:
+            so.write('Adaptive Huffman encoded %d%%    \r' % int(floor(i/len(x)*100)))
+            so.flush()
         code = []
         if alphabet_pointers[x[i]][0] == -1:  # not yet in tree
             # create a new pair
@@ -77,13 +74,8 @@ def vitter_encode(x):
 
             code = code[::-1]  # as we are traversing leaves to root so codeword is reversed
         y += code
-        print("Current Tree")
-        print_tree(sib_list)
         sib_list, alphabet_pointers = modify_tree_vitter(sib_list, alphabet_pointers, char=x[i])
-        print("Updated Tree")
-        print_tree(sib_list)
 
-    print_tree(sib_list)
     return y
 
 
@@ -247,8 +239,8 @@ def modify_tree_vitter(sib_list, alphabet_pointers, char):
     alphabet_pointers: dict
     Dictionary of pointers to leaves of sib_list labelled with ascii characters
 
-    pnt_list: list (pnt, bit)
-    list of pointers and their corrseponding bits for the tree traversal
+    char: character
+    Character that has been encoded on the tree
 
     Returns:
     --------
@@ -272,7 +264,6 @@ def modify_tree_vitter(sib_list, alphabet_pointers, char):
                 if item.count[1-i] == sib_list[pnt].count[bit]: #1-i to make sure it is left as possible
                     if (index, 1-i) == (pnt, bit) or (index, 1-i) == sib_list[pnt].fp: #already at highest order
                         not_changed = True #don't swap with parent node
-                        # error going in here!!! when 'r' is decoded
                     else:
                         #swap fps and bps
                         bckpnt1 = sib_list[pnt].bp[bit]
@@ -291,7 +282,7 @@ def modify_tree_vitter(sib_list, alphabet_pointers, char):
                         sib_list[pnt].bp[bit] = bckpnt2
                         sib_list[index].bp[1-i] = bckpnt1
                         pnt, bit = index, 1-i #was changed from i-1 and does change performance??
-
+                        not_changed = True
                     get_out = True
                     break
 
@@ -303,25 +294,21 @@ def modify_tree_vitter(sib_list, alphabet_pointers, char):
         if not_changed:
             pnt, bit = sib_list[pnt].fp
 
-    # while pnt != -1:
-    #     sib_list[pnt].count[bit] += 1
-    #     pnt, bit = sib_list[pnt].fp
-
     # ERROR checks on the lists
     #no pair should reference behind itself:
-    for i in range(len(sib_list)):
-        if sib_list[i].fp[0] > i and sib_list[i].fp[0] != -1: #inc will effectively flip the sign
-            print_tree(sib_list)
-            raise RuntimeError("Back referencing pair {}".format(sib_list[i]))
-
-    #the counts of every pair should be the sum of its previous
-    for i in range(len(sib_list)):
-        for bit in range(2):
-            if not sib_list[i].bp[bit][1]:
-                if sib_list[i].count[bit] != sum(sib_list[sib_list[i].bp[bit][0]].count):
-                    print("LIST ON ERROR")
-                    print_tree(sib_list)
-                    raise RuntimeError("Incorrect sum on pair {}".format(sib_list[i]))
+    # for i in range(len(sib_list)):
+    #     if sib_list[i].fp[0] > i and sib_list[i].fp[0] != -1: #inc will effectively flip the sign
+    #         print_tree(sib_list)
+    #         raise RuntimeError("Back referencing pair {}".format(sib_list[i]))
+    #
+    # #the counts of every pair should be the sum of its previous
+    # for i in range(len(sib_list)):
+    #     for bit in range(2):
+    #         if not sib_list[i].bp[bit][1]:
+    #             if sib_list[i].count[bit] != sum(sib_list[sib_list[i].bp[bit][0]].count):
+    #                 print("LIST ON ERROR")
+    #                 print_tree(sib_list)
+    #                 raise RuntimeError("Incorrect sum on pair {}".format(sib_list[i]))
 
     return sib_list, alphabet_pointers
 
@@ -452,7 +439,7 @@ def decode(y, N=10, alpha=0.5):
 
 
 if __name__ == "__main__":
-    data = "eets try something a bit more complicated"
+    data = "eets try something a "#bit more complicated"
     y = vitter_encode(data)
     print("Data encoded")
     # x = vitter_decode(y)
