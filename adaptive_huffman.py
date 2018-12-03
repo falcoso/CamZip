@@ -127,6 +127,11 @@ def vitter_encode(x, N=200, alpha=0.5, remove=False):
             so.flush()
         # print("Encoding '{}'".format(x[i]))
         code = []
+        try:
+            a = alphabet_pointers[x[i]][0]
+        except KeyError:
+            alphabet_pointers[x[i]] = (-1,-1)
+
         if alphabet_pointers[x[i]][0] == -1:  # not yet in tree
             # create a new pair
             new_pair = SiblingPair()

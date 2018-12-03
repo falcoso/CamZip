@@ -6,3 +6,5 @@ Report/*
 practice.py
 .pytest_cache
 .cache/*
+*.csv
+Benchmark_files/*
