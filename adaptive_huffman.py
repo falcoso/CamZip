@@ -20,11 +20,18 @@ def print_tree(tree):
         print("Entry {}: {}".format(i, j))
 
 
-def vitter_encode(x):
+def vitter_encode(x, N=200, alpha=0.5, remove=False):
     """
     Encodes using the vitter algorithm
     """
     # initialise alphabet pointers with null
+    if alpha < 1:
+        non_alpha = False
+    elif alpha == 1:
+        non_alpha = True
+    else:
+        raise ValueError("{} is not a valid alpha, alpha <=1".format(alpha))
+
     alphabet_pointers = dict([(chr(a), (-1, -1)) for a in range(128)])
     alphabet_pointers["NULL"] = (0, 0)
 
@@ -44,6 +51,7 @@ def vitter_encode(x):
         if i % 100 == 0:
             so.write('Adaptive Huffman encoded %d%%    \r' % int(floor(i/len(x)*100)))
             so.flush()
+        # print("Encoding '{}'".format(x[i]))
         code = []
         if alphabet_pointers[x[i]][0] == -1:  # not yet in tree
             # create a new pair
@@ -77,12 +85,19 @@ def vitter_encode(x):
             code = code[::-1]  # as we are traversing leaves to root so codeword is reversed
 
         y += code
-        sib_list, alphabet_pointers = modify_tree_vitter(sib_list, alphabet_pointers, char=x[i])
+        # print("Current list")
+        # print_tree(sib_list)
+        sib_list, alphabet_pointers = modify_tree_vitter(
+            sib_list, alphabet_pointers, char=x[i], non_alpha=non_alpha)
 
+        if i % N == 0 and alpha != 1:
+            sib_list = decay_list(sib_list, alphabet_pointers, alpha, remove)
+
+    # print_tree(sib_list)
     return y
 
 
-def vitter_decode(y):
+def vitter_decode(y, N=200, alpha=0.5, remove=False):
     # first symbol will be uncompressed and 7 bits ascii
     x = []
     init_sym = y[:7]
@@ -116,17 +131,18 @@ def vitter_decode(y):
         if pair.bp[bit][1]:  # reached leaf
             if pair.bp[bit][0] == "NULL":  # if new symbol
                 code = y[i+1:i+8]
-                i += 7 #additional incremented add at the end of the loop
+                i += 7  # additional incremented add at the end of the loop
                 symb = chr(BitArray(code).uint)
                 if alphabet_pointers[symb][0] != -1:
                     print("ERROR CURRENT TREE:")
                     print_tree(sib_list)
                     print("ALPHABET POINTERS:")
                     for j, k in alphabet_pointers.items():
-                        print("{}: {}".format(j,k))
+                        print("{}: {}".format(j, k))
                     print(x)
                     raise RuntimeError("Null root for existing items: {}".format(symb))
                 x.append(symb)
+                # print("Decoded {}".format(x[-1]))
 
                 # create a new pair
                 new_pair = SiblingPair()
@@ -142,6 +158,9 @@ def vitter_decode(y):
                 x.append(pair.bp[bit][0])
 
             sib_list, alphabet_pointers = modify_tree_vitter(sib_list, alphabet_pointers, x[-1])
+            if len(x) % N == 1 and alpha != 1:
+                sib_list = decay_list(sib_list, alphabet_pointers, alpha, remove)
+
             current_pnt = 0
         else:
             current_pnt = pair.bp[bit][0]
@@ -149,6 +168,132 @@ def vitter_decode(y):
         i += 1
 
     return x
+
+
+def decay_list(sib_list, alphabet_pointers, alpha, remove=False):
+    """
+    Decays the list's counts by alpha
+    """
+    remove = True
+    print("Start of function")
+    print_tree(sib_list)
+    if remove:
+        func = np.floor
+    else:
+        func = np.ceil
+
+    for item in sib_list:
+        item.count = func(item.count*alpha)
+
+    # correct sums from floor division
+    for index in range(len(sib_list)-1,-1,-1):
+        for check in range(2):
+            if not sib_list[index].bp[check][1]:
+                back_pair = sib_list[sib_list[index].bp[check][0]] # seems fishy problem probably here, basically swapping nodes means not all run
+                if back_pair.bp[0][1] or back_pair.bp[1][1]:
+                    sib_list[index].count[check] = np.sum(sib_list[sib_list[index].bp[check][0]].count)
+
+    print("Post decay")
+    print_tree(sib_list)
+    pnt = 0
+    pnt_list = []
+    while pnt < len(sib_list):
+        for bit in range(1, -1, -1):
+            print("*******Checking pnt {} bit {}".format(pnt,bit))
+            print_tree(sib_list)
+            if (pnt, bit) == (0, 1):
+                continue
+
+            get_out = False
+            change_made = False
+            while not get_out:
+                swap = False
+                if pnt == -1:
+                    pass
+                elif bit == 1 and sib_list[pnt-1].count[0] < sib_list[pnt].count[bit]:
+                    swap_bit = 0
+                    swap_pnt = pnt-1
+                    swap = True
+                elif bit == 0 and sib_list[pnt].count[1] < sib_list[pnt].count[bit]:
+                    swap_bit = 1
+                    swap_pnt = pnt
+                    swap = True
+
+                if swap:
+                    change_made = True
+                    # swap fps and bps
+                    bckpnt1 = sib_list[pnt].bp[bit]
+                    if bckpnt1[1]:
+                        alphabet_pointers[bckpnt1[0]] = (swap_pnt, swap_bit)
+                    else:
+                        sib_list[bckpnt1[0]].fp = (swap_pnt, swap_bit)
+
+                    bckpnt2 = sib_list[swap_pnt].bp[swap_bit]
+                    if bckpnt2[1]:
+                        alphabet_pointers[bckpnt2[0]] = (pnt, bit)
+                    else:
+                        sib_list[bckpnt2[0]].fp = (pnt, bit)
+
+                    # swap bps
+                    sib_list[pnt].bp[bit] = bckpnt2
+                    sib_list[swap_pnt].bp[swap_bit] = bckpnt1
+
+                    # swap counts
+                    temp_count = sib_list[pnt].count[bit]
+                    sib_list[pnt].count[bit] = sib_list[swap_pnt].count[swap_bit]
+                    sib_list[swap_pnt].count[swap_bit] = temp_count
+                    pnt_list.append(pnt)
+                    pnt, bit = swap_pnt, swap_bit
+                else:
+                    get_out = True
+                    if change_made:  # correct the weights of parents for all nodes that have changed
+                        pnt_list.append(pnt)
+                        for pnt2 in pnt_list:
+                            while pnt2 != 0:
+                                print("Summing nodes pnt2 = {}".format(pnt2))
+                                print_tree(sib_list)
+                                fp = sib_list[pnt2].fp
+                                sib_list[fp[0]].count[fp[1]] = np.sum(sib_list[pnt2].count)
+                                pnt2 = fp[0]
+                    elif bit == 0:
+                        pnt += 1
+
+    for item in sib_list:
+        item.count = func(item.count)
+
+    # correct sums from floor division
+    for index in range(len(sib_list)-1, -1, -1):
+        for check in range(2):
+            if not sib_list[index].bp[check][1]:
+                sib_list[index].count[check] = np.sum(sib_list[sib_list[index].bp[check][0]].count)
+
+    # ERROR checks on the lists, uncomment for debugging
+    # no pair should reference behind itself:
+    for i in range(len(sib_list)):
+        if sib_list[i].fp[0] > i and sib_list[i].fp[0] != -1:  # inc will effectively flip the sign
+            print_tree(sib_list)
+            raise RuntimeError("Back referencing pair {}".format(sib_list[i]))
+
+    # the counts of every pair should be the sum of its previous
+    for i in range(len(sib_list)):
+        for bit in range(2):
+            if not sib_list[i].bp[bit][1]:
+                if sib_list[i].count[bit] != sum(sib_list[sib_list[i].bp[bit][0]].count):
+                    print("LIST ON ERROR")
+                    print_tree(sib_list)
+                    raise RuntimeError("Incorrect sum on pair {}".format(sib_list[i]))
+
+    # the counts of every pair should be <= its higher order
+    for i in range(len(sib_list)):
+        for bit in range(2):
+            if (bit == 0 and sib_list[i].count[bit] > sib_list[i].count[1]) or (bit == 1 and i != 0 and sib_list[i].count[bit] > sib_list[i-1].count[0]):
+                print("LIST ON ERROR")
+                print_tree(sib_list)
+                raise RuntimeError("Mis ordered pair {}".format(sib_list[i]))
+
+    print("RETURNING")
+    print_tree(sib_list)
+    return sib_list
 
 
 def init_tree():
@@ -212,7 +357,7 @@ def init_tree():
     return sib_list, alphabet_pointers
 
 
-def modify_tree_vitter(sib_list, alphabet_pointers, char):
+def modify_tree_vitter(sib_list, alphabet_pointers, char, non_alpha=True):
     """
     Modifies and exitsting sibling list for Adaptive Huffman algorithms based
     on a traversal list from an encoding or decoding process
@@ -239,17 +384,18 @@ def modify_tree_vitter(sib_list, alphabet_pointers, char):
 
     # NOTE: Tree should be maintained such that all bp < fp and all
     # counts higher up the list <= than those below it
-
+    pnt_list = []
     get_out = False
     # check alphabet_pointers
     pnt, bit = alphabet_pointers[char]
     while pnt != -1:  # could skip first iteration if new char as will be in max place?
-        for index, item in enumerate(sib_list):
+        # print("NEW PNT {} BIT {}:".format(pnt,bit))
+        for index in range(len(sib_list)):
             for i in range(2):
-                if item.count[1-i] == sib_list[pnt].count[bit]:  # 1-i to make sure it is left as possible
-                    # already at highest order
+                if sib_list[index].count[1-i] == sib_list[pnt].count[bit]:  # 1-i to make sure it is left as possible
                     if (index, 1-i) == (pnt, bit) or (index, 1-i) == sib_list[pnt].fp:
-                        # don't swap with parent node
+                        # if already at highest order
+                        # also don't swap with parent node
                         pass
                     else:
                         # swap fps and bps
@@ -268,7 +414,7 @@ def modify_tree_vitter(sib_list, alphabet_pointers, char):
                         # swap bps
                         sib_list[pnt].bp[bit] = bckpnt2
                         sib_list[index].bp[1-i] = bckpnt1
-                        pnt, bit = index, 1-i  # was changed from i-1 and does change performance??
+                        pnt, bit = index, 1-i
                     get_out = True
                     break
 
@@ -277,23 +423,84 @@ def modify_tree_vitter(sib_list, alphabet_pointers, char):
                 break
 
         sib_list[pnt].count[bit] += 1
-        pnt, bit = sib_list[pnt].fp
+        pnt_list.append((pnt, bit))
+        # print("Before Alpha shuffle")
+        # print_tree(sib_list)
+
+        # if not non_alpha:  # i.e. counts are not integers
+        #     # re-order the list so that it is at the bottom of its new weight
+        #     # class
+        #     for member in range(len(pnt_list)-1, -1, -1):
+        #         pnt, bit = pnt_list[member]
+        #         while (pnt, bit) != (0, 1):
+        #             # print("Next set of pnt {}, bits {}".format(pnt, bit))
+        #             # print_tree(sib_list)
+        #             for index in range(pnt, -1, -1):
+        #                 # print("INDEX {}".format(index))
+        #                 for i in range(2):
+        #                     # print("I {}".format(i))
+        #                     if index == pnt and i <= bit:
+        #                         continue
+        #                     elif (index, i) == sib_list[pnt].fp:
+        #                         get_out = True
+        #                         break
+        #                     if sib_list[index].count[i] < sib_list[pnt].count[bit]:
+        #                         # print("CHANGING")
+        #                         # swap fps and bps
+        #                         bckpnt1 = sib_list[pnt].bp[bit]
+        #                         # print("BCKPNT1 {}".format(bckpnt1))
+        #                         if bckpnt1[1]:
+        #                             alphabet_pointers[bckpnt1[0]] = (index, i)
+        #                         else:
+        #                             sib_list[bckpnt1[0]].fp = (index, i)
+        #
+        #                         bckpnt2 = sib_list[index].bp[i]
+        #                         # print("BCKPNT2 {}".format(bckpnt2))
+        #                         if bckpnt2[1]:
+        #                             alphabet_pointers[bckpnt2[0]] = (pnt, bit)
+        #                         else:
+        #                             sib_list[bckpnt2[0]].fp = (pnt, bit)
+        #
+        #                         # swap bps
+        #                         sib_list[pnt].bp[bit] = bckpnt2
+        #                         sib_list[index].bp[i] = bckpnt1
+        #
+        # # swap counts
+        # temp_count = sib_list[pnt].count[bit]
+        # sib_list[pnt].count[bit] = sib_list[index].count[i]
+        # sib_list[index].count[i] = temp_count
+        # pnt, bit = index, i
+        # pnt_list[member] = (pnt, bit)
+        #                     else:
+        #                         get_out=True
+        #                         break
+        #                 if get_out:
+        #                     break
+        #             if get_out:
+        #                 get_out = False
+        #                 break
+
+        # print("Post alpha shuffle")
+        # print_tree(sib_list)
+        # print(pnt_list)
+        # raise RuntimeError()
+        pnt, bit = sib_list[pnt_list[-1][0]].fp
 
     # ERROR checks on the lists, uncomment for debugging
     # no pair should reference behind itself:
-    # for i in range(len(sib_list)):
-    #     if sib_list[i].fp[0] > i and sib_list[i].fp[0] != -1: #inc will effectively flip the sign
-    #         print_tree(sib_list)
-    #         raise RuntimeError("Back referencing pair {}".format(sib_list[i]))
-    #
-    # #the counts of every pair should be the sum of its previous
-    # for i in range(len(sib_list)):
-    #     for bit in range(2):
-    #         if not sib_list[i].bp[bit][1]:
-    #             if sib_list[i].count[bit] != sum(sib_list[sib_list[i].bp[bit][0]].count):
-    #                 print("LIST ON ERROR")
-    #                 print_tree(sib_list)
-    #                 raise RuntimeError("Incorrect sum on pair {}".format(sib_list[i]))
+    for i in range(len(sib_list)):
+        if sib_list[i].fp[0] > i and sib_list[i].fp[0] != -1:  # inc will effectively flip the sign
+            print_tree(sib_list)
+            raise RuntimeError("Back referencing pair {}".format(sib_list[i]))
+
+    # the counts of every pair should be the sum of its previous
+    for i in range(len(sib_list)):
+        for bit in range(2):
+            if not sib_list[i].bp[bit][1]:
+                if sib_list[i].count[bit] != sum(sib_list[sib_list[i].bp[bit][0]].count):
+                    print("LIST ON ERROR")
+                    print_tree(sib_list)
+                    raise RuntimeError("Incorrect sum on pair {}".format(sib_list[i]))
 
     return sib_list, alphabet_pointers
 
@@ -424,11 +631,12 @@ def decode(y, N=10, alpha=0.5):
 
 
 if __name__ == "__main__":
-    data = "        HAMLET"
+    data = "Lets try something a bit more complicated so that we can see what the decaying of weights does"
     # print("Original data length {}".format(len(data)))
-    y = vitter_encode(data)
+    alpha, N = 0.5, 10
+    y = vitter_encode(data, N=N, alpha=alpha)
     print("Data encoded")
-    x = vitter_decode(y)
-    # print("Data decoded")
+    x = vitter_decode(y, N=N, alpha=alpha)
+    print("Data decoded")
     # print("Decoded data length {}".format(len(x)))
     print(''.join(x))
