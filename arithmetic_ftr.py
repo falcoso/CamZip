@@ -1,6 +1,7 @@
 import math
 from sys import stdout as so
 from bisect import bisect
+from bitstring import BitArray
 
 
 def elias_gamma_encode(x):
@@ -25,6 +26,35 @@ def elias_gamma_encode(x):
     y = [int(a) for a in bin(x)[2:]]
     c += y
     return c
+
+def elias_gamma_decode(y):
+    """
+    Decodes an Elias gamma encoding at the start of a binary list
+
+    Parameters:
+    -----------
+    y: list of bits
+    Binary to be decoded
+
+    Returns:
+    --------
+    num: int
+    Decoded integer
+
+    y: list of bits
+    Rest of y that has not been decoded
+    """
+    n = 0
+    for i in range(len(y)):
+        if y[i] == 0:
+            n+=1
+        else:
+            break
+    num = y[i:i+n+1]
+    num = BitArray(num)
+    num = num.uint
+    y = y[i+n+1:]
+    return num , y
 
 
 def encode(x, p):
@@ -66,7 +96,8 @@ def encode(x, p):
 
     f = dict([(a, mf) for a, mf in zip(p, f)])
 
-    y = []           # initialise output list
+    y = []
+    #y = elias_gamma_encode(len(x))           # initialise output list
     lo, hi = 0, one  # initialise lo and hi to be [0,1.0)
     straddle = 0     # initialise the straddle counter to 0
 
@@ -125,7 +156,6 @@ def encode(x, p):
         y += [0]*straddle
 
     #encode prefix free length of string
-    y += elias_gamma_encode(len(x))
     return(y)
 
 
@@ -219,3 +249,9 @@ def decode(y, p, n):
             break
 
     return(x)
+
+if __name__ == "__main__":
+    num = 5264568
+    a = elias_gamma_encode(num)
+    num2, y= elias_gamma_decode(a)
+    print(num2)
