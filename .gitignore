@@ -8,3 +8,4 @@ practice.py
 .cache/*
 *.csv
 Benchmark_files/*
+Plots.py

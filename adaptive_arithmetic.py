@@ -4,6 +4,14 @@ from bisect import bisect
 from bitstring import BitArray
 import vl_codes as vl
 
+"""
+This file details the functions needed to apply an adaptive Arithmetic coding
+algorithm. It uses a Laplacian estimator of the ASCII characters, and encodes
+the file length to the start of the the compressed file using Elias Gamma
+coding.
+
+O. Jones Dec 2018
+"""
 
 def elias_gamma_encode(x):
     """
@@ -183,7 +191,7 @@ def decode(y):
     Returns:
     --------
     x: list of char
-    y data decoded 
+    y data decoded
     """
     n, y = elias_gamma_decode(y)
 
