@@ -1,4 +1,4 @@
-from adaptive_huffman import print_tree, SiblingPair, error_check_tree
+from fgk import print_tree, SiblingPair, error_check_tree
 import numpy as np
 from bitstring import BitArray
 from sys import stdout as so
@@ -59,11 +59,14 @@ def vitter_encode(x, N=200, alpha=0.5, remove=False):
         if i % 100 == 0:
             so.write('Adaptive Huffman encoded %d%%    \r' % int(floor(i/len(x)*100)))
             so.flush()
-        # print("Encoding '{}'".format(x[i]))
+
         code = []
         try:
+            # non ASCII characters not set up to be decoded but this exception
+            # handler will add it to the alphabet for benchmarking purposes
             a = alphabet_pointers[x[i]][0]
         except KeyError:
+            print("Warning non ASCII character encoded, decoder will not recognise\n")
             alphabet_pointers[x[i]] = (-1, -1)
 
         if alphabet_pointers[x[i]][0] == -1:  # not yet in tree

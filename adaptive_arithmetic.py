@@ -13,6 +13,7 @@ coding.
 O. Jones Dec 2018
 """
 
+
 def elias_gamma_encode(x):
     """
     Generates an Elias gamma encoding of x
@@ -36,6 +37,7 @@ def elias_gamma_encode(x):
     c += y
     return c
 
+
 def elias_gamma_decode(y):
     """
     Decodes an Elias gamma encoding at the start of a binary list
@@ -55,14 +57,15 @@ def elias_gamma_decode(y):
     n = 0
     for i in range(len(y)):
         if y[i] == 0:
-            n+=1
+            n += 1
         else:
             break
     num = y[i:i+n+1]
     num = BitArray(num)
     num = num.uint
     y = y[i+n+1:]
-    return num , y
+    return num, y
+
 
 def cumulative_update(freq):
     """
@@ -88,7 +91,8 @@ def cumulative_update(freq):
     f = dict([(a, mf) for a, mf in zip(p, f)])
     return f, p
 
-def encode(x):
+
+def encode(x, N=1500, alpha=0.5):
     """
     Encodes data using the Arithmetic coding algorithm
 
@@ -110,7 +114,7 @@ def encode(x):
     half = 2*quarter
     threequarters = 3*quarter
 
-    #Laplacian Estimator
+    # Laplacian Estimator
     freq = dict([(chr(a), 1) for a in range(128)])
     f, p = cumulative_update(freq)
 
@@ -164,6 +168,9 @@ def encode(x):
 
         freq[x[k]] += 1
         f, p = cumulative_update(freq)
+        if k % N == 0 and k != 0:
+            for char in freq:
+                freq[char] = math.ceil(freq[char]*alpha)
 
     # termination bits
     # after processing all input symbols, flush any bits still in the 'straddle' pipeline
@@ -175,11 +182,11 @@ def encode(x):
         y.append(1)
         y += [0]*straddle
 
-    #encode prefix free length of string
+    # encode prefix free length of string
     return(y)
 
 
-def decode(y):
+def decode(y, N=1500, alpha=0.5):
     """
     Encodes data using the Arithmetic coding algorithm
 
@@ -231,6 +238,10 @@ def decode(y):
 
         freq[x[x_position]] += 1
         f, p = cumulative_update(freq)
+        if x_position % N == 0 and x_position != 0:
+            for char in freq:
+                freq[char] = math.ceil(freq[char]*alpha)
+
         p = list(p.values())
         f = list(f.values())
 
@@ -264,9 +275,10 @@ def decode(y):
 
     return(x)
 
+
 if __name__ == "__main__":
-    data = "This code is now completel independant of the previous probability distributions and no longer requires any other inputs apart from the initial data wooop 3512678567765"
-    p, freq = vl.probability_dict(data)
-    y = encode(data)
-    x = decode(y)
+    data = "This code is now completel independant of the previous probability distributions and no longer requires any other inputs apart from the initial data"
+    N = 10
+    y = encode(data, N=N)
+    x = decode(y, N=N)
     print(''.join(x))

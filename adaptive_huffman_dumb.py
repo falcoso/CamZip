@@ -3,6 +3,15 @@ import vl_codes
 from sys import stdout as so
 from math import floor
 
+"""
+This file details the functions needed to apply an adaptive Huffman coding
+algorithm by re-generating the extended tree after every iteration. It uses a
+Laplacian estimator, and the counts can be decayed by the given input
+parameters. This is considered a 'dumb' algorithm as it is vary slow compared to
+more sophistacted methods such as the FGK or Vitter algorithm.
+
+O. Jones Dec 2018
+"""
 
 def return_extended(xt):
     """
