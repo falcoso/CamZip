@@ -2,6 +2,7 @@ import math
 from sys import stdout as so
 from bisect import bisect
 from bitstring import BitArray
+import vl_codes as vl
 
 
 def elias_gamma_encode(x):
@@ -40,7 +41,6 @@ def elias_gamma_decode(y):
     --------
     num: int
     Decoded integer
-
     y: list of bits
     Rest of y that has not been decoded
     """
@@ -56,8 +56,31 @@ def elias_gamma_decode(y):
     y = y[i+n+1:]
     return num , y
 
+def cumulative_update(freq):
+    """
+    Updates the cumulative probabilities of a distribution from input counts
 
-def encode(x, p):
+    Parameters:
+    -----------
+    freq: dict
+    Dictionary of alphabet_counts
+
+    Returns:
+    --------
+    f: dict
+    Dictionary of cumulative distribution
+    """
+    tot_count = sum(freq.values())
+    p = dict([(a, freq[a]/tot_count) for a in freq.keys()])
+
+    f = [0]
+    for symbol, probability in p.items():
+        f.append(f[-1]+probability)
+
+    f = dict([(a, mf) for a, mf in zip(p, f)])
+    return f, p
+
+def encode(x):
     """
     Encodes data using the Arithmetic coding algorithm
 
@@ -65,20 +88,12 @@ def encode(x, p):
     -----------
     x: str
     Data string to be compressed
-    p: dict
-    Alphabet and corresponding probability
 
     Returns:
     --------
     y: binary list
     x data encoded with the p probability
     """
-    # error check p
-    if not all((a >= 0 for a in p.values())):
-        raise ValueError("Input distribution has negative probabilities")
-
-    if abs(1 - sum(p.values())) > 1E-5:
-        raise ValueError("Input distribution sums to {} not 1".format(sum(p.values())))
 
     # define '1' for interval based on precision available
     precision = 32
@@ -87,17 +102,11 @@ def encode(x, p):
     half = 2*quarter
     threequarters = 3*quarter
 
-    p = dict([(a, p[a]) for a in p if p[a] > 0])
+    #Laplacian Estimator
+    freq = dict([(chr(a), 1) for a in range(128)])
+    f, p = cumulative_update(freq)
 
-    # Compute cumulative probability as in Shannon-Fano
-    f = [0]
-    for symbol, probability in p.items():
-        f.append(f[-1]+probability)
-
-    f = dict([(a, mf) for a, mf in zip(p, f)])
-
-    y = []
-    #y = elias_gamma_encode(len(x))           # initialise output list
+    y = elias_gamma_encode(len(x))           # initialise output list
     lo, hi = 0, one  # initialise lo and hi to be [0,1.0)
     straddle = 0     # initialise the straddle counter to 0
 
@@ -145,6 +154,9 @@ def encode(x, p):
             #      A BOX OF CHOCOLATES FOR ANYONE WHO GIVES ME A WELL ARGUED REASON FOR THIS... It seems
             #      to solve a minor precision problem.)
 
+        freq[x[k]] += 1
+        f, p = cumulative_update(freq)
+
     # termination bits
     # after processing all input symbols, flush any bits still in the 'straddle' pipeline
     straddle += 1     # adding 1 to straddle for "good measure" (ensures prefix-freeness)
@@ -159,30 +171,21 @@ def encode(x, p):
     return(y)
 
 
-def decode(y, p, n):
+def decode(y):
     """
     Encodes data using the Arithmetic coding algorithm
 
     Parameters:
     -----------
-    y: list
-    list of bits encoded with p
-    p: dict
-    Alphabet and corresponding probability
-    n: int
-    Decoded file length in bytes
+    y: binary list
+    list of bits Arithmetically Encoded
 
     Returns:
     --------
-    y: binary list
-    x data encoded with the p probability
+    x: list of char
+    y data decoded 
     """
-    # error check p
-    if not all((a >= 0 for a in p.values())):
-        raise ValueError("Input distribution has negative probabilities")
-
-    if abs(1 - sum(p.values())) > 1E-5:
-        raise ValueError("Input distribution sums to {} not 1".format(sum(p.values())))
+    n, y = elias_gamma_decode(y)
 
     precision = 32
     one = int(2**precision - 1)
@@ -190,15 +193,12 @@ def decode(y, p, n):
     half = 2*quarter
     threequarters = 3*quarter
 
-    p = dict([(a, p[a]) for a in p if p[a] > 0])
-
+    freq = dict([(chr(a), 1) for a in range(128)])
+    f, p = cumulative_update(freq)
     alphabet = list(p)
-    f = [0]
-    for a in p:
-        f.append(f[-1]+p[a])
-    f.pop()
 
     p = list(p.values())
+    f = list(f.values())
 
     y.extend(precision*[0])  # dummy zeros to prevent index out of bound errors
     x = n*[0]                # initialise all zeros
@@ -220,6 +220,12 @@ def decode(y, p, n):
 
         lo = lo + int(math.ceil(f[a]*lohi_range))
         hi = lo + int(math.floor(p[a]*lohi_range))
+
+        freq[x[x_position]] += 1
+        f, p = cumulative_update(freq)
+        p = list(p.values())
+        f = list(f.values())
+
         if (lo == hi):
             raise NameError('Zero interval!')
 
@@ -251,7 +257,8 @@ def decode(y, p, n):
     return(x)
 
 if __name__ == "__main__":
-    num = 5264568
-    a = elias_gamma_encode(num)
-    num2, y= elias_gamma_decode(a)
-    print(num2)
+    data = "This code is now completel independant of the previous probability distributions and no longer requires any other inputs apart from the initial data wooop 3512678567765"
+    p, freq = vl.probability_dict(data)
+    y = encode(data)
+    x = decode(y)
+    print(''.join(x))
