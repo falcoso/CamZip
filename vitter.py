@@ -72,7 +72,7 @@ def vitter_encode(x, N=200, alpha=0.5, remove=False):
         if alphabet_pointers[x[i]][0] == -1:  # not yet in tree
             # create a new pair
             new_pair = SiblingPair()
-            new_pair.count = np.array([0.0, 0.0])  # CHANGE THIS TO A 0????
+            new_pair.count = np.array([0.0, 0.0])
             new_pair.fp = (alphabet_pointers["NULL"][0], 0)
             new_pair.bp = [("NULL", True), (x[i], True)]
             sib_list.append(new_pair)
@@ -158,13 +158,11 @@ def vitter_decode(y, N=200, alpha=0.5, remove=False):
             so.write('Adaptive Huffman decoded %d%%    \r' % int(floor(i/len(y)*100)))
             so.flush()
 
-        # when null leaf is found (see below) gather the next 7 bits to decide
-        # the new symbol
         bit = y[i]
 
         if pair.bp[bit][1]:  # reached leaf
             if pair.bp[bit][0] == "NULL":  # if new symbol
-                code = y[i+1:i+8]
+                code = y[i+1:i+8] #gathers block code
                 i += 7  # additional incremented add at the end of the loop
                 symb = chr(BitArray(code).uint)
                 if alphabet_pointers[symb][0] != -1:
@@ -260,7 +258,7 @@ def decay_list(sib_list, alphabet_pointers, alpha, remove=False):
     rev_pnt = -1
     while len(alphabet_counts) > 1:
         # sort in order of frequency putting internal nodes at the bottom to stop
-        # parents being at the top of the null class
+        # parents or Null pair being at the top of the 1 weight class
         alphabet_counts = sorted(alphabet_counts, key=lambda el: (el[1], el[2]))
         for bit in range(2):
             sib_list[rev_pnt].bp[bit] = (alphabet_counts[bit][0], alphabet_counts[bit][2])
