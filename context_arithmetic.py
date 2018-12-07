@@ -9,8 +9,8 @@ from adaptive_arithmetic import elias_gamma_decode, elias_gamma_encode
 
 """
 This file details the functions needed to apply a first pass context based
-Arithmetic coding algorithm. It uses a 1st order Markov process (Markov chain)
-to encode the data, and encodes the file length to the start of the the
+Static Arithmetic coding algorithm. It uses a 1st order Markov process (Markov
+chain) to encode the data, and encodes the file length to the start of the
 compressed file using Elias Gamma coding. The decoder needs the transition
 matrix and the initial distribution of the file.
 

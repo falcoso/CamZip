@@ -2,13 +2,12 @@ import math
 from sys import stdout as so
 from bisect import bisect
 from bitstring import BitArray
-import vl_codes as vl
 
 """
 This file details the functions needed to apply an adaptive Arithmetic coding
 algorithm. It uses a Laplacian estimator of the ASCII characters, and encodes
 the file length to the start of the the compressed file using Elias Gamma
-coding.
+coding. Decaying functionality is included.
 
 O. Jones Dec 2018
 """

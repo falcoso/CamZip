@@ -6,7 +6,7 @@ from math import floor
 This file contains all the functions necessary for an FGK Adaptive Huffman
 coding algorithm. It uses an initial laplacian estimator for all ASCII symbols,
 and unlike vitter.py does not have functionality to decay the estimates as they
-change over timeself.
+change over time.
 
 O. Jones Dec 2018
 """

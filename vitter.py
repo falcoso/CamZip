@@ -5,7 +5,7 @@ from sys import stdout as so
 from math import floor
 
 """
-This file details the functions needed to apply a vitter algorithm of adaptive
+This file details the functions needed to apply a Vitter algorithm of Adaptive
 Huffman coding. The encoding algorithm uses a NULL symbol rather than an initial
 estimator, and can be switched to remove unused symbols or keep them in once
 added to the alphabet as it decays the counts.
